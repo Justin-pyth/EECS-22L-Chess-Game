@@ -24,5 +24,12 @@ int main() {
 
     struct piece* board [8][10];
 
+    struct piece BlackKing;
+
+    BlackKing.color = Black;
+    BlackKing.piece = King;
+
+    board [0][0] = King;
+
     return 0;
 }
