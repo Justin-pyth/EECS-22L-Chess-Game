@@ -124,6 +124,7 @@ int main() {
     struct piece* board [8][10];
 
     initializeBoard(board);
+    
     printBoard(board);
 
     //Main Game Loop
