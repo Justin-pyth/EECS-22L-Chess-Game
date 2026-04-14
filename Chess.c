@@ -21,6 +21,14 @@
         enum pieceColor color;
     };
 
+    void initalizeBoard (struct piece* board) {
+        struct piece whiteKing;
+
+        whiteKing.color = BLACK;
+        whiteKing.piece = KING;
+
+        
+    }
 
 int main() {
 
@@ -31,6 +39,8 @@ int main() {
     bool gameContinue = true;
 
     struct piece* board [8][10];
+
+    
 
     initializeBoard(board);
 
