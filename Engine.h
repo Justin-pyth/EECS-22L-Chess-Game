@@ -5,6 +5,9 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define INF 1000000
+#define MAX_DEPTH 10
+#define MAX_MOVES 256
+
 
 #include <time.h>
 #include "Moves.h"

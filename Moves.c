@@ -1,6 +1,6 @@
 #include "Moves.h"
 
-struct move* getMoves(int* moveCount) 
+void getMoves(int* moveCount)
 {
     ;
 }

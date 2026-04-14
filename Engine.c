@@ -7,8 +7,7 @@ int getScore(const struct gameState* gs)
 
     static const int weight[7]=
     {
-        //king weight might not be needed
-        [King] = 10*INF,
+        [King] = 0,
         [Queen] = 900,
         [Knight] = 300,
         [Bishop] = 350,
@@ -48,7 +47,7 @@ int negaMax(const struct gameState* gs, int depth, int alpha, int beta)
     int checkState = checkmate(gs);
     //can replace 1 with integer representing CHECKMATE, when checkmate function is finished
     if(checkState == 1) 
-        return (gs->currentPlayer) ? INF : -INF; //return INF if white loses, else -INF for black loss
+        return -INF; //return -INF for loss for current player
     //can replace 2 with integer representing STALEMATE, when checmate function is finished
     else if (checkState == 2)
         return 0;   //aka draw
@@ -62,7 +61,7 @@ int negaMax(const struct gameState* gs, int depth, int alpha, int beta)
     {
         //makeMove(gs, moves[i]);
 
-        int score = negaMax(gs, depth - 1, -beta, -alpha);
+        int score = -negaMax(gs, depth - 1, -beta, -alpha);
 
         //undoMove(gs, moves[i]);
 
@@ -76,6 +75,70 @@ int negaMax(const struct gameState* gs, int depth, int alpha, int beta)
 
     return bestScore;
 }
+
+struct move findBestMove(struct gameState* gs, int depth)
+{
+    int maxScore = -INF;
+
+    //find all legal moves
+    int moveCount = 0;
+    struct move* moves = getMoves(&moveCount);
+
+    //pick an initial move, maybe add randomness to this
+    struct move bestMove = moves[0];
+
+    for(int i = 0 ; i < moveCount; i++)
+    {
+        //makeMove(gs, moves[i]);
+
+        // !!increase depth once more stable, 3 is testing depth, can be higher for smarter play!!
+        int score = negaMax(gs, depth - 1, -INF, INF);
+
+        //undoMove(gs, moves[i]);
+
+        if(score > maxScore)
+        {
+            maxScore = score;
+            bestMove = moves[i];
+        }
+    }
+
+    return bestMove;
+}
+
+void movePiece_Computer(struct gameState* gs, int difficulty)
+{
+    srand(time(NULL));
+    int depth = 0;
+
+    //example of dificulty
+    enum level
+    {
+        easy, medium, hard
+    };
+
+    switch(difficulty)
+    {
+        // ** SHOULD CHANGE DEPTHS BASED ON TIME TESTING
+        case easy:
+            //pick random depth 1-4
+            depth = (rand() % 4 ) + 1;
+            break;
+        case medium:
+            //pick random depth 5-7
+            depth = (rand() % 3 ) + 5;
+            break;
+        case hard:
+            depth = 8;
+            break;
+
+    }
+
+    struct move bestMove = findBestMove(gs, depth);
+    
+    //makeMove(gs, bestMove)
+}
+
 
 int miniMax(const struct gameState* gs, int depth, int alpha, int beta, bool playerColor)
 {
@@ -143,67 +206,4 @@ int miniMax(const struct gameState* gs, int depth, int alpha, int beta, bool pla
         return minScore;
     }
 
-}
-
-struct move findBestMove(struct gameState* gs, int depth)
-{
-    int maxScore = -INF;
-
-    //find all legal moves
-    int moveCount = 0;
-    struct move* moves = getMoves(&moveCount);
-
-    //pick an initial move, maybe add randomness to this
-    struct move bestMove = moves[0];
-
-    for(int i = 0 ; i < moveCount; i++)
-    {
-        //makeMove(gs, moves[i]);
-
-        // !!increase depth once more stable, 3 is testing depth, can be higher for smarter play!!
-        int score = negaMax(gs, depth - 1, -INF, INF);
-
-        //undoMove(gs, moves[i]);
-
-        if(score > maxScore)
-        {
-            maxScore = score;
-            bestMove = moves[i];
-        }
-    }
-
-    return bestMove;
-}
-
-void movePiece_Computer(struct gameState* gs, int difficulty)
-{
-    srand(time(NULL));
-    int depth = 0;
-
-    //example of dificulty
-    enum level
-    {
-        easy, medium, hard
-    };
-
-    switch(difficulty)
-    {
-        // ** SHOULD CHANGE DEPTHS BASED ON TIME TESTING
-        case easy:
-            //pick random depth 1-4
-            depth = (rand() % 4 ) + 1;
-            break;
-        case medium:
-            //pick random depth 5-7
-            depth = (rand() % 3 ) + 5;
-            break;
-        case hard:
-            depth = 8;
-            break;
-
-    }
-
-    struct move bestMove = findBestMove(gs, depth);
-    
-    //makeMove(gs, bestMove)
 }
