@@ -1,35 +1,48 @@
 #include <stdio.h>
+#include <stdbool.h>
 
-enum PieceType {
-        King,
-        Queen,
-        Knight,
-        Bishop,
-        Rook,
-        Ant,
-        Anteater
+    enum pieceType {
+        KING,
+        QUEEN,
+        KNIGHT,
+        BISHOP,
+        ROOK,
+        ANT,
+        ANTEATER
     };
 
-    enum PieceColor {
-       Black,
-       White 
+    enum pieceColor {
+       BLACK,
+       WHITE 
     };
 
     struct piece {
-        enum PieceType piece;
-        enum PieceColor color;
+        enum pieceType piece;
+        enum pieceColor color;
     };
+
 
 int main() {
 
+    //Board Structure
+    
+
+    //Game control flag
+    bool gameContinue = true;
+
     struct piece* board [8][10];
 
-    struct piece BlackKing;
+    initializeBoard(board);
 
-    BlackKing.color = Black;
-    BlackKing.piece = King;
+    //Main Game Loop
+    while (gameContinue) {
 
-    board [0][0] = King;
+        //Check for game status (check, checkmate, continue)
+
+    }
+
+
+
 
     return 0;
 }
