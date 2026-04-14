@@ -68,16 +68,6 @@ struct gameState {
 };
 //=======================================================
 
-
-
-
-struct Move* getMoves(int* moveCount);
-
-struct Move* getLegalMoves(struct piece p, int* moveCount);
-
-//probably belongs in another file
-bool isLegalMove(struct Move, const struct gameState* gs);
-
 int getScore(const struct gameState* gs);
 
 int miniMax(const struct gameState* gs, int depth, int alpha, int beta, bool playerColor);
