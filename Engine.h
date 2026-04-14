@@ -1,9 +1,15 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
+//useful utility functions for alpha-beta minimax
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
+
 
 //TEMPORARY DEFINITIONS
 //=======================================================
