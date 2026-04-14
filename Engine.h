@@ -9,6 +9,7 @@
 #include <time.h>
 #include "Moves.h"
 
+//retrieve the score by computing total weights of pieces on board
 int getScore(const struct gameState* gs);
 
 //recursive function that returns a score

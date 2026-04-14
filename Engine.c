@@ -38,6 +38,45 @@ int getScore(const struct gameState* gs)
     return score;
 }
 
+int negaMax(const struct gameState* gs, int depth, int alpha, int beta)
+{
+    //find all legal moves
+    int moveCount = 0;
+    struct move* moves = getMoves(&moveCount);
+
+    //check if no legal moves can be made
+    int checkState = checkmate(gs);
+    //can replace 1 with integer representing CHECKMATE, when checkmate function is finished
+    if(checkState == 1) 
+        return (gs->currentPlayer) ? INF : -INF; //return INF if white loses, else -INF for black loss
+    //can replace 2 with integer representing STALEMATE, when checmate function is finished
+    else if (checkState == 2)
+        return 0;   //aka draw
+
+    //only use getScore after ensuring no checkmate condition
+    //base condition
+    if (depth == 0) return getScore(gs);
+
+    int bestScore = -INF;
+    for(int i = 0; i < moveCount; i++)
+    {
+        //makeMove(gs, moves[i]);
+
+        int score = negaMax(gs, depth - 1, -beta, -alpha);
+
+        //undoMove(gs, moves[i]);
+
+        if(score > bestScore)
+            bestScore = score;
+
+        //recompute alpha and prune
+        alpha = MAX(alpha, bestScore);
+        if (beta <= alpha) break;
+    }
+
+    return bestScore;
+}
+
 int miniMax(const struct gameState* gs, int depth, int alpha, int beta, bool playerColor)
 {
     //find all legal moves
@@ -122,7 +161,7 @@ struct move findBestMove(struct gameState* gs, int depth)
         //makeMove(gs, moves[i]);
 
         // !!increase depth once more stable, 3 is testing depth, can be higher for smarter play!!
-        int score = miniMax(gs, depth - 1, -INF, INF, false);
+        int score = negaMax(gs, depth - 1, -INF, INF);
 
         //undoMove(gs, moves[i]);
 
