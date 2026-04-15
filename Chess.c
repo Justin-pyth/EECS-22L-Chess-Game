@@ -113,18 +113,39 @@
 
     }
 
-int main() {
+    bool isKingInCheck(struct piece* board[8][10]) {
+        // Placeholder for check detection logic
+        return false;
+    }
 
-    //Board Structure
-    
+    bool isCheckmate(struct piece* board[8][10]) {
+        // Placeholder for checkmate detection logic
+        return false;
+    }
+
+    bool isStalemate(struct piece* board[8][10]) {
+        // Placeholder for stalemate detection logic
+        return false;
+    }
+
+    bool isDraw(struct piece* board[8][10]) {
+        // Placeholder for draw detection logic
+        return false;
+    }
+
+    int moveNumber = 1;
+
+
+int main() {
 
     //Game control flag
     bool gameContinue = true;
 
     struct piece* board [8][10];
 
+
+
     initializeBoard(board);
-    
     printBoard(board);
 
     //Main Game Loop
