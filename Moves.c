@@ -26,6 +26,20 @@ bool isLegalMove(struct move moveMade, const struct gameState* gs)
 
 
 /*
+    doMove()
+    Performs the move by using pos1 and pos2 from the move struct
+*/
+void doMove(struct piece* board[8][10], char startingPos, char endingPos)
+{
+    ;
+    // set the endingPos to the piece that is being moved
+
+    // set the startingPos to NULL
+}
+
+
+/*
+    getAntMoves()
     Returns the moves that a given Ant (pawn) piece can make
 */
 struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* moveCount)
@@ -61,47 +75,86 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
     }
 
     // Otherwise, ant can only move one square directly forward
+    if (board[row+oneStep][col] == NULL && (row+oneStep) >= 0 && (row+oneStep) < 8)
+    {
+        // add possible move to moves
+        sprintf(moves[*moveCount].pos1, "%c%d", 'a' + col, row + 1); // current position
+        sprintf(moves[*moveCount].pos2, "%c%d", 'a' + col, oneStep + 1); // destination
+        (*moveCount)++;
+    }
+
+    // Capture
+
+
+    // Promotion
+
+    // En passant
 }
 
 
-// Bishop
+/*
+    getBishopMoves()
+    Returns the moves that a given Bishop piece can make
+*/
 struct move* getBishopMoves(struct piece p, int* moveCount)
 {
 
 }
 
 
-// Knight
+/*
+    getKnightMoves()
+    Returns the moves that a given Knight piece can make
+*/
 struct move* getKnightMoves(struct piece p, int* moveCount)
 {
 
 }
 
 
-// Rook
+/*
+    getRookMoves()
+    Returns the moves that a given Rook piece can make
+*/
 struct move* getRookMoves(struct piece p, int* moveCount)
 {
 
 }
 
 
-// Queen
+/*
+    getQueenMoves()
+    Returns the moves that a given Queen piece can make
+*/
 struct move* getQueenMoves(struct piece p, int* moveCount)
 {
 
 }
 
 
-// King
+/*
+    getKingMoves()
+    Returns the moves that a given King piece can make
+*/
 struct move* getKingMoves(struct piece p, int* moveCount)
 {
 
 }
 
 
-// Anteater
+/*
+    getAnteaterMoves()
+    Returns the moves that a given Anteater piece can make
+*/
 struct move* getAnteaterMoves(struct piece p, int* moveCount)
 {
 
 }
 
+/*
+    Performs a capture by replacing the captured piece with the capturing piece on the board
+*/
+struct move* getCapture(struct piece pCaptured, struct piece pCapturing)
+{
+
+}
