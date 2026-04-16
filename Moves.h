@@ -10,8 +10,8 @@
 typedef char* string;
 
 struct move {
-    struct pos pos1; // "a4" 
-    struct pos pos2; // "a5"
+    struct pos pos1; // "a4", current position (from)
+    struct pos pos2; // "a5", destination (to)
 };
 
 struct pos {
