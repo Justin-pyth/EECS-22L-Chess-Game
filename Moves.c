@@ -39,7 +39,7 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
     {
         direction = 1;
     }
-    else
+    else if (p->color == BLACK)
     {
         direction = -1;
     }
