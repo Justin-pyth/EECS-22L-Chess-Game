@@ -22,6 +22,8 @@ struct move* getLegalMoves(struct piece p, int* moveCount)
 bool isLegalMove(struct move moveMade, const struct gameState* gs)
 {
    ;
+   // go through list of moves for a certain piece
+        // if piece is in check, then the list of moves for that piece may or may not be a legal move
 }
 
 
@@ -29,7 +31,7 @@ bool isLegalMove(struct move moveMade, const struct gameState* gs)
     doMove()
     Performs the move by using pos1 and pos2 from the move struct
 */
-void doMove(struct piece* board[8][10], char startingPos, char endingPos)
+void makeMove(struct piece* board[8][10], char startingPos, char endingPos)
 {
     ;
     // set the endingPos to the piece that is being moved
@@ -68,8 +70,9 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
         if (board[row+oneStep][col] == NULL && board[row+twoSteps][col] == NULL)
         {
             // add possible move to moves
-            sprintf(moves[*moveCount].pos1, "%c%d", 'a' + col, row + 1); // current position
-            sprintf(moves[*moveCount].pos2, "%c%d", 'a' + col, twoSteps + 1); // destination
+            // TODO: change pos1 and pos2
+            // sprintf(moves[*moveCount].pos1, "%c%d", 'a' + col, row + 1); // current position
+            // sprintf(moves[*moveCount].pos2, "%c%d", 'a' + col, twoSteps + 1); // destination
             (*moveCount)++;
         }
     }
@@ -78,8 +81,9 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
     if (board[row+oneStep][col] == NULL && (row+oneStep) >= 0 && (row+oneStep) < 8)
     {
         // add possible move to moves
-        sprintf(moves[*moveCount].pos1, "%c%d", 'a' + col, row + 1); // current position
-        sprintf(moves[*moveCount].pos2, "%c%d", 'a' + col, oneStep + 1); // destination
+        // TODO: change pos1 and pos2
+        // sprintf(moves[*moveCount].pos1, "%c%d", 'a' + col, row + 1); // current position
+        // sprintf(moves[*moveCount].pos2, "%c%d", 'a' + col, oneStep + 1); // destination
         (*moveCount)++;
     }
 

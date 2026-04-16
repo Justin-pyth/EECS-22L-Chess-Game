@@ -10,18 +10,18 @@
 typedef char* string;
 
 struct move {
-    struct pos1; // "a4" 
-    struct pos2; // "a5"
+    struct pos pos1; // "a4" 
+    struct pos pos2; // "a5"
 };
 
 struct pos {
-    char rank;
-    char file;
+    char rank; // "f"
+    char file; // "4"
 };
 
 struct location { // use to log moves
-    int rank; // 1-10
-    int file; // 1-8
+    int row; // 0-9 (ex: "f"=5)
+    int col; // 0-7 (ex: 4)
 };
 
 struct log {
