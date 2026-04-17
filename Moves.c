@@ -184,7 +184,7 @@ struct move* getBishopMoves(struct piece* board[8][10], int row, int col, int* m
 */
 struct move* getKnightMoves(struct piece* board[8][10], int row, int col, int* moveCount)
 {
-    struct move* moves = malloc(8 * sizeof(struct move)); // a bishop piece has at most 8 possible moves
+    struct move* moves = malloc(8 * sizeof(struct move)); // a knight piece has at most 8 possible moves
     struct piece* p = board[row][col];
     moveCount = 0;
 
@@ -229,7 +229,7 @@ struct move* getKnightMoves(struct piece* board[8][10], int row, int col, int* m
 */
 struct move* getRookMoves(struct piece* board[8][10], int row, int col, int* moveCount)
 {
-    struct move* moves = malloc(14 * sizeof(struct move)); // a bishop piece has at most 8 possible moves
+    struct move* moves = malloc(14 * sizeof(struct move)); // a rook piece has at most 14 possible moves
     struct piece* p = board[row][col];
     moveCount = 0;
 
@@ -277,9 +277,82 @@ struct move* getRookMoves(struct piece* board[8][10], int row, int col, int* mov
     getQueenMoves()
     Returns the moves that a given Queen piece can make (horizontal, vertical, and diagonal rays)
 */
-struct move* getQueenMoves(struct piece p, int* moveCount)
+struct move* getQueenMoves(struct piece* board[8][10], int row, int col, int* moveCount)
 {
+    struct move* moves = malloc(27 * sizeof(struct move)); // a queen piece has at most 27 possible moves
+    struct piece* p = board[row][col];
+    moveCount = 0;
 
+    // checks for diagonal free spaces, not including captures (same as bishop)
+    int bishopDirs[4][2] = {{1,1},{1,-1},{-1,1},{-1,-1}};
+
+    for (int d = 0; d < 4; d++) {
+        int r = row + bishopDirs[d][0];
+        int c = col + bishopDirs[d][1];
+        while (r >= 0 && r < 8 && c >= 0 && c < 10) 
+        {
+            if (board[r][c] == NULL) 
+            {
+                char fromRank = row + 1;
+                char fromFile = 'a' + col;
+                char toRank = r + 1;
+                char toFile = 'a' + c;
+
+                struct pos fromPos;
+                struct pos toPos;
+
+                fromPos.rank = fromRank;
+                fromPos.file = fromFile;
+                toPos.rank = toRank;
+                toPos.file = toFile;
+
+                moves[*moveCount].pos1 = fromPos;
+                moves[*moveCount].pos2 = toPos;
+
+                (*moveCount)++;
+            }
+            r += bishopDirs[d][0];
+            c += bishopDirs[d][1];
+        }
+    }
+
+    // checks for horizontal and vertical free spaces, not including captures (same as rook)
+    int rookDirs[4][2] = {{1,0},{-1,0},{0,1},{0,-1}};
+
+    for (int d = 0; d < 4; d++) 
+    {
+        int r = row + rookDirs[d][0];
+        int c = col + rookDirs[d][1];
+        while (r >= 0 && r < 8 && c >= 0 && c < 10) 
+        {
+            if (board[r][c] == NULL) 
+            {
+                char fromRank = row + 1;
+                char fromFile = 'a' + col;
+                char toRank = r + 1;
+                char toFile = 'a' + c;
+
+                struct pos fromPos;
+                struct pos toPos;
+
+                fromPos.rank = fromRank;
+                fromPos.file = fromFile;
+                toPos.rank = toRank;
+                toPos.file = toFile;
+
+                moves[*moveCount].pos1 = fromPos;
+                moves[*moveCount].pos2 = toPos;
+
+                (*moveCount)++;
+            }
+            r += rookDirs[d][0];
+            c += rookDirs[d][1];
+        }
+    }
+
+    // TODO: Capture
+
+    return moves;
 }
 
 
@@ -287,7 +360,7 @@ struct move* getQueenMoves(struct piece p, int* moveCount)
     getKingMoves()
     Returns the moves that a given King piece can make (one step in any direction)
 */
-struct move* getKingMoves(struct piece p, int* moveCount)
+struct move* getKingMoves(struct piece* board[8][10], int row, int col, int* moveCount)
 {
 
 }
