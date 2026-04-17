@@ -117,11 +117,11 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
     // TODO: Capture
 
 
-    // Promotion
+    // TODO: Promotion
     // insert helper function specifically for pawn promotion here
     // doPromotion()
 
-    // En passant
+    // TODO: En passant
     // insert helper function specifically for en passant here
     // doEnPassant()
 
@@ -269,6 +269,8 @@ struct move* getRookMoves(struct piece* board[8][10], int row, int col, int* mov
 
     // TODO: Capture
 
+    // TODO: Castling
+
     return moves;
 }
 
@@ -362,7 +364,46 @@ struct move* getQueenMoves(struct piece* board[8][10], int row, int col, int* mo
 */
 struct move* getKingMoves(struct piece* board[8][10], int row, int col, int* moveCount)
 {
+    struct move* moves = malloc(9 * sizeof(struct move)); // a king piece has at most 9 possible moves
+    struct piece* p = board[row][col];
+    moveCount = 0;
 
+    // checks for free space one step in any direction
+    for (int dr = -1; dr <= 1; dr++) 
+    {
+        for (int dc = -1; dc <= 1; dc++) 
+        {
+            if (dr == 0 && dc == 0) continue;
+            int r = row + dr;
+            int c = col + dc;
+            if (r >= 0 && r < 8 && c >= 0 && c < 10 && board[r][c] == NULL) 
+            {
+                char fromRank = row + 1;
+                char fromFile = 'a' + col;
+                char toRank = r + 1;
+                char toFile = 'a' + c;
+
+                struct pos fromPos;
+                struct pos toPos;
+
+                fromPos.rank = fromRank;
+                fromPos.file = fromFile;
+                toPos.rank = toRank;
+                toPos.file = toFile;
+
+                moves[*moveCount].pos1 = fromPos;
+                moves[*moveCount].pos2 = toPos;
+
+                (*moveCount)++;
+            }
+        }
+    }
+
+    // TODO: Capture
+
+    // TODO: Castling
+
+    return moves;
 }
 
 
