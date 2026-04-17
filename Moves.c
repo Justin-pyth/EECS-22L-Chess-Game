@@ -411,9 +411,46 @@ struct move* getKingMoves(struct piece* board[8][10], int row, int col, int* mov
     getAnteaterMoves()
     Returns the moves that a given Anteater piece can make
 */
-struct move* getAnteaterMoves(struct piece p, int* moveCount)
+struct move* getAnteaterMoves(struct piece* board[8][10], int row, int col, int* moveCount)
 {
+    struct move* moves = malloc(17 * sizeof(struct move)); // an anteater piece has at most 17 possible moves
+    struct piece* p = board[row][col];
+    moveCount = 0;
 
+    // checks for free space one step in any direction (same as king)
+    for (int dr = -1; dr <= 1; dr++) 
+    {
+        for (int dc = -1; dc <= 1; dc++) 
+        {
+            if (dr == 0 && dc == 0) continue;
+            int r = row + dr;
+            int c = col + dc;
+            if (r >= 0 && r < 8 && c >= 0 && c < 10 && board[r][c] == NULL) 
+            {
+                char fromRank = row + 1;
+                char fromFile = 'a' + col;
+                char toRank = r + 1;
+                char toFile = 'a' + c;
+
+                struct pos fromPos;
+                struct pos toPos;
+
+                fromPos.rank = fromRank;
+                fromPos.file = fromFile;
+                toPos.rank = toRank;
+                toPos.file = toFile;
+
+                moves[*moveCount].pos1 = fromPos;
+                moves[*moveCount].pos2 = toPos;
+
+                (*moveCount)++;
+            }
+        }
+    }
+
+    // TODO: Anteating (cannot capture any other piece)
+
+    return moves;
 }
 
 /*
@@ -441,6 +478,16 @@ struct move* doPromotion()
     tbd
 */
 struct move* doEnPassant()
+{
+
+}
+
+
+/*
+    Anteating
+    tbd
+*/
+struct move* doAnteating()
 {
 
 }
