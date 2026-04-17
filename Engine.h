@@ -26,4 +26,12 @@ uint16_t findBestMove(struct gameState* gs, int depth);
 //calls findBestMove (based off difficulty level), and makes the move
 void movePiece_Computer(struct gameState* gs, int difficulty);
 
+//most-valuable-victim, least-valuable-attacker:
+//returns a weight, weights are higher when attacker is low value
+//and captured piece is high
+//think: pawn captures queen
+int MVV_LVA(const struct gameState* gs, uint16_t move);
+//insertion sorts by weight (from MVV_LVA)
+void preSort(const struct gameState* gs, uint16_t* moves, int moveCount);
+
 #endif

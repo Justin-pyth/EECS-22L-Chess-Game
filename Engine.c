@@ -45,6 +45,9 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
     int moveCount = 0;
     uint16_t moves[MAX_MOVES];
     getMoves(gs, moves, &moveCount);
+    //sort according to MVV-LVA
+    preSort(gs, moves, moveCount);
+
 
     //if no legal moves
     if(moveCount == 0)
@@ -87,6 +90,8 @@ uint16_t findBestMove(struct gameState* gs, int depth)
     int moveCount = 0;
     uint16_t moves[MAX_MOVES];
     getMoves(gs, moves, &moveCount);
+    //sort according to MVV-LVA
+    preSort(gs, moves, moveCount);
 
     //pick an initial move, maybe add randomness to this
     if(moveCount == 0) return 0; //<---if no legal moves, don't access moves[0]
@@ -145,4 +150,64 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
     uint16_t bestMove = findBestMove(gs, depth);
     
     //makeMove(gs, bestMove)
+}
+
+int MVV_LVA(const struct gameState* gs, uint16_t move)
+{
+    //get [from] and [to] tiles
+    int from = getFrom(move);
+    int to = getTo(move);
+
+    //access the specific piece from board
+    struct piece* attacker = gs->board[getRow(from)][getCol(from)];
+    struct piece* victim = gs->board[getRow(to)][getCol(to)];
+
+    //weight table
+    static const int weight[7]=
+    {
+        [King] = 0,
+        [Queen] = 900,
+        [Knight] = 300,
+        [Bishop] = 350,
+        [Rook] = 500,
+        [Ant] = 100,
+        [Anteater] = 330
+    };
+
+    //if not a capture, then return 0
+    if(!victim) return 0;
+    //if capture, subtract the victim's value by attackers value
+    //goal is to get the highest victim value, lowest attacker value
+    //ex: pawn->queen
+    return weight[victim->piece_] - weight[attacker->piece_];
+
+}
+
+void preSort(const struct gameState* gs, uint16_t* moves, int moveCount)
+{
+    //compute weights
+    int scores[MAX_MOVES];
+    for(int i = 0 ; i<moveCount; i++)
+        scores[i] = MVV_LVA(gs, moves[i]);
+
+    //a modified version of insertion sort w/ shifting instead of swaps
+    //note : if i = 0, it would already be sorted, so just skip to next index 1
+    for(int i = 1; i<moveCount; i++)
+    {
+        uint16_t move =  moves[i];
+        int score = scores[i];
+
+        int j = i-1;
+        //while the current score is lower
+        while(j>=0 & scores[j] < score)
+        {
+            //shift elements forward (move worse element 1 unit right)
+            moves[j+1]=moves[j];
+            scores[j+1]=scores[j];
+            j--;
+        }
+        //place in correct position after shifts
+        moves[j+1] = move;
+        scores[j+1] = score;
+    }
 }
