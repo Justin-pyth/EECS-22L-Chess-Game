@@ -34,7 +34,8 @@ int getScore(const struct gameState* gs)
         }
     }
 
-    return score;
+    // return relative to side to move
+    return (gs->currentPlayer == White) ? score : -score;
 }
 
 int negaMax(struct gameState* gs, int depth, int alpha, int beta)
@@ -49,7 +50,7 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
     if(moveCount == 0)
     {
         //and in check
-        if(inCheck(gs)) return -INF; //then checkmate
+        if(inCheck(gs)) return -INF+depth; //then checkmate
         //and not in check
         else return 0;  //stalemate
     }
@@ -88,14 +89,17 @@ uint16_t findBestMove(struct gameState* gs, int depth)
     getMoves(gs, moves, &moveCount);
 
     //pick an initial move, maybe add randomness to this
+    if(moveCount == 0) return 0; //<---if no legal moves, don't access moves[0]
     uint16_t bestMove = moves[0];
-
+    
+    int alpha = -INF;
+    int beta = INF;
     for(int i = 0 ; i < moveCount; i++)
     {
         //makeMove(gs, moves[i]);
 
         // !!increase depth once more stable, 3 is testing depth, can be higher for smarter play!!
-        int score = negaMax(gs, depth - 1, -INF, INF);
+        int score = -negaMax(gs, depth - 1, -beta, -alpha);
 
         //undoMove(gs, moves[i]);
 
@@ -104,6 +108,7 @@ uint16_t findBestMove(struct gameState* gs, int depth)
             maxScore = score;
             bestMove = moves[i];
         }
+        alpha = MAX(alpha, maxScore);
     }
 
     return bestMove;
