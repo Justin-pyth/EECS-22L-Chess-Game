@@ -28,7 +28,7 @@ bool isLegalMove(struct move moveMade, const struct gameState* gs)
 
 
 /*
-    doMove()
+    makeMove()
     Performs the move by using pos1 and pos2 from the move struct
 */
 void makeMove(struct piece* board[8][10], struct move thisMove, bool isCapture)
@@ -129,11 +129,46 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
 
 /*
     getBishopMoves()
-    Returns the moves that a given Bishop piece can make
+    Returns the moves that a given Bishop piece can make (diagonals)
 */
-struct move* getBishopMoves(struct piece p, int* moveCount)
+struct move* getBishopMoves(struct piece* board[8][10], int row, int col, int* moveCount)
 {
+    struct move* moves = malloc(13 * sizeof(struct move)); // a bishop piece has at most 13 possible moves
+    struct piece* p = board[row][col];
+    moveCount = 0;
+    
+    int bishopDirs[4][2] = {{1,1},{1,-1},{-1,1},{-1,-1}};
 
+    // checks for diagonal free spaces, not including captures
+    for (int d = 0; d < 4; d++) {
+        int r = row + bishopDirs[d][0];
+        int c = col + bishopDirs[d][1];
+        while (r >= 0 && r < 8 && c >= 0 && c < 10) 
+        {
+            if (board[r][c] == NULL) 
+            {
+                char fromRank = row + 1;
+                char fromFile = 'a' + col;
+                char toRank = r + 1;
+                char toFile = 'a' + col;
+
+                struct pos fromPos;
+                struct pos toPos;
+
+                fromPos.rank = fromRank;
+                fromPos.file = fromFile;
+                toPos.rank = toRank;
+                toPos.file = toFile;
+
+                moves[*moveCount].pos1 = fromPos;
+                moves[*moveCount].pos2 = toPos;
+
+                (*moveCount)++;
+            }
+            r += bishopDirs[d][0];
+            c += bishopDirs[d][1];
+        }
+    }
 }
 
 
