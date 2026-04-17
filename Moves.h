@@ -9,14 +9,21 @@
 //=======================================================
 typedef char* string;
 
-struct location { // use to log moves
-    int rank; // 1-10
-    int file; // 1-8
-};
 struct move {
-    string pos1; // "a4" 
-    string pos2; // "a5"
+    struct pos pos1; // "a4", current position (from)
+    struct pos pos2; // "a5", destination (to)
 };
+
+struct pos {
+    char rank; // "f"
+    char file; // "4"
+};
+
+struct location { // use to log moves
+    int row; // 0-9 (ex: "f"=5)
+    int col; // 0-7 (ex: 4)
+};
+
 struct log {
     string move; // "a1 - j10"
     int piece; // Black or White
