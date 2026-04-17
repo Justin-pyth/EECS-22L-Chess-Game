@@ -124,6 +124,8 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
     // En passant
     // insert helper function specifically for en passant here
     // doEnPassant()
+
+    return moves;
 }
 
 
@@ -150,7 +152,7 @@ struct move* getBishopMoves(struct piece* board[8][10], int row, int col, int* m
                 char fromRank = row + 1;
                 char fromFile = 'a' + col;
                 char toRank = r + 1;
-                char toFile = 'a' + col;
+                char toFile = 'a' + c;
 
                 struct pos fromPos;
                 struct pos toPos;
@@ -169,6 +171,8 @@ struct move* getBishopMoves(struct piece* board[8][10], int row, int col, int* m
             c += bishopDirs[d][1];
         }
     }
+
+    return moves;
 }
 
 
@@ -176,9 +180,40 @@ struct move* getBishopMoves(struct piece* board[8][10], int row, int col, int* m
     getKnightMoves()
     Returns the moves that a given Knight piece can make
 */
-struct move* getKnightMoves(struct piece p, int* moveCount)
+struct move* getKnightMoves(struct piece* board[8][10], int row, int col, int* moveCount)
 {
+    struct move* moves = malloc(8 * sizeof(struct move)); // a bishop piece has at most 8 possible moves
+    struct piece* p = board[row][col];
+    moveCount = 0;
 
+    int knightMoves[8][2] = {{2,1},{2,-1},{-2,1},{-2,-1},{1,2},{1,-2},{-1,2},{-1,-2}};
+        for (int i = 0; i < 8; i++) 
+        {
+            int r = row + knightMoves[i][0];
+            int c = col + knightMoves[i][1];
+            if (r >= 0 && r < 8 && c >= 0 && c < 10 && board[r][c] == NULL) 
+            {
+                char fromRank = row + 1;
+                char fromFile = 'a' + col;
+                char toRank = r + 1;
+                char toFile = 'a' + c;
+
+                struct pos fromPos;
+                struct pos toPos;
+
+                fromPos.rank = fromRank;
+                fromPos.file = fromFile;
+                toPos.rank = toRank;
+                toPos.file = toFile;
+
+                moves[*moveCount].pos1 = fromPos;
+                moves[*moveCount].pos2 = toPos;
+
+                (*moveCount)++;
+            }
+        }
+
+    return moves;
 }
 
 
