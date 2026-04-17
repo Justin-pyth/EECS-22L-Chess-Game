@@ -31,9 +31,10 @@ bool isLegalMove(struct move moveMade, const struct gameState* gs)
     doMove()
     Performs the move by using pos1 and pos2 from the move struct
 */
-void makeMove(struct piece* board[8][10], char startingPos, char endingPos)
+void makeMove(struct piece* board[8][10], struct move thisMove, bool isCapture)
 {
-    ;
+    // get startingPos = pos1 and endingPos = pos2 from the move struct
+
     // set the endingPos to the piece that is being moved
 
     // set the startingPos to NULL
@@ -62,7 +63,7 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
 
     int oneStep = row + direction;
 
-    // If ant in starting position, can move one or two squares forward
+    // If ant in starting position, can move (one or) two squares forward
     if (p->color == WHITE && row == 1 || p->color == BLACK && row == 6)
     {
         int twoSteps = row + (2 * direction); // can only move two steps if in starting position
@@ -70,9 +71,22 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
         if (board[row+oneStep][col] == NULL && board[row+twoSteps][col] == NULL)
         {
             // add possible move to moves
-            // TODO: change pos1 and pos2
-            // sprintf(moves[*moveCount].pos1, "%c%d", 'a' + col, row + 1); // current position
-            // sprintf(moves[*moveCount].pos2, "%c%d", 'a' + col, twoSteps + 1); // destination
+            char fromRank = row + 1;
+            char fromFile = 'a' + col;
+            char toRank = twoSteps + 1;
+            char toFile = 'a' + col;
+
+            struct pos fromPos;
+            struct pos toPos;
+
+            fromPos.rank = fromRank;
+            fromPos.file = fromFile;
+            toPos.rank = toRank;
+            toPos.file = toFile;
+
+            moves[*moveCount].pos1 = fromPos;
+            moves[*moveCount].pos2 = toPos;
+
             (*moveCount)++;
         }
     }
@@ -81,9 +95,22 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
     if (board[row+oneStep][col] == NULL && (row+oneStep) >= 0 && (row+oneStep) < 8)
     {
         // add possible move to moves
-        // TODO: change pos1 and pos2
-        // sprintf(moves[*moveCount].pos1, "%c%d", 'a' + col, row + 1); // current position
-        // sprintf(moves[*moveCount].pos2, "%c%d", 'a' + col, oneStep + 1); // destination
+        char fromRank = row + 1;
+        char fromFile = 'a' + col;
+        char toRank = oneStep + 1;
+        char toFile = 'a' + col;
+
+        struct pos fromPos;
+        struct pos toPos;
+
+        fromPos.rank = fromRank;
+        fromPos.file = fromFile;
+        toPos.rank = toRank;
+        toPos.file = toFile;
+
+        moves[*moveCount].pos1 = fromPos;
+        moves[*moveCount].pos2 = toPos;
+
         (*moveCount)++;
     }
 
@@ -91,8 +118,12 @@ struct move* getAntMoves(struct piece* board[8][10], int row, int col, int* move
 
 
     // Promotion
+    // insert helper function specifically for pawn promotion here
+    // doPromotion()
 
     // En passant
+    // insert helper function specifically for en passant here
+    // doEnPassant()
 }
 
 
@@ -156,9 +187,30 @@ struct move* getAnteaterMoves(struct piece p, int* moveCount)
 }
 
 /*
+    getCapture()
     Performs a capture by replacing the captured piece with the capturing piece on the board
 */
 struct move* getCapture(struct piece pCaptured, struct piece pCapturing)
+{
+
+}
+
+
+/*
+    Promotion
+    tbd
+*/
+struct move* doPromotion()
+{
+
+}
+
+
+/*
+    En Passant
+    tbd
+*/
+struct move* doEnPassant()
 {
 
 }
