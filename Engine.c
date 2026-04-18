@@ -34,23 +34,29 @@ int getScore(const struct gameState* gs)
         }
     }
 
-    return score;
+    // return relative to side to move
+    return (gs->currentPlayer == White) ? score : -score;
 }
 
-int negaMax(const struct gameState* gs, int depth, int alpha, int beta)
+int negaMax(struct gameState* gs, int depth, int alpha, int beta)
 {
+
     //find all legal moves
     int moveCount = 0;
-    struct move* moves = getMoves(&moveCount);
+    uint16_t moves[MAX_MOVES];
+    getMoves(gs, moves, &moveCount);
+    //sort according to MVV-LVA
+    preSort(gs, moves, moveCount);
 
-    //check if no legal moves can be made
-    int checkState = checkmate(gs);
-    //can replace 1 with integer representing CHECKMATE, when checkmate function is finished
-    if(checkState == 1) 
-        return -INF; //return -INF for loss for current player
-    //can replace 2 with integer representing STALEMATE, when checmate function is finished
-    else if (checkState == 2)
-        return 0;   //aka draw
+
+    //if no legal moves
+    if(moveCount == 0)
+    {
+        //and in check
+        if(inCheck(gs)) return -INF+depth; //then checkmate
+        //and not in check
+        else return 0;  //stalemate
+    }
 
     //only use getScore after ensuring no checkmate condition
     //base condition
@@ -76,23 +82,29 @@ int negaMax(const struct gameState* gs, int depth, int alpha, int beta)
     return bestScore;
 }
 
-struct move findBestMove(struct gameState* gs, int depth)
+uint16_t findBestMove(struct gameState* gs, int depth)
 {
     int maxScore = -INF;
 
-    //find all legal moves
+    //get legal moves
     int moveCount = 0;
-    struct move* moves = getMoves(&moveCount);
+    uint16_t moves[MAX_MOVES];
+    getMoves(gs, moves, &moveCount);
+    //sort according to MVV-LVA
+    preSort(gs, moves, moveCount);
 
     //pick an initial move, maybe add randomness to this
-    struct move bestMove = moves[0];
-
+    if(moveCount == 0) return 0; //<---if no legal moves, don't access moves[0]
+    uint16_t bestMove = moves[0];
+    
+    int alpha = -INF;
+    int beta = INF;
     for(int i = 0 ; i < moveCount; i++)
     {
         //makeMove(gs, moves[i]);
 
         // !!increase depth once more stable, 3 is testing depth, can be higher for smarter play!!
-        int score = negaMax(gs, depth - 1, -INF, INF);
+        int score = -negaMax(gs, depth - 1, -beta, -alpha);
 
         //undoMove(gs, moves[i]);
 
@@ -101,6 +113,7 @@ struct move findBestMove(struct gameState* gs, int depth)
             maxScore = score;
             bestMove = moves[i];
         }
+        alpha = MAX(alpha, maxScore);
     }
 
     return bestMove;
@@ -134,76 +147,67 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
 
     }
 
-    struct move bestMove = findBestMove(gs, depth);
+    uint16_t bestMove = findBestMove(gs, depth);
     
     //makeMove(gs, bestMove)
 }
 
-
-int miniMax(const struct gameState* gs, int depth, int alpha, int beta, bool playerColor)
+int MVV_LVA(const struct gameState* gs, uint16_t move)
 {
-    //find all legal moves
-    int moveCount = 0;
-    struct move* moves = getMoves(&moveCount);
+    //get [from] and [to] tiles
+    int from = getFrom(move);
+    int to = getTo(move);
 
-    //check if no legal moves can be made
-    int checkState = checkmate(gs);
-    //can replace 1 with integer representing CHECKMATE, when checkmate function is finished
-    if(checkState == 1) 
-        return (playerColor) ? -INF : INF;
-    //can replace 2 with integer representing STALEMATE, when checmate function is finished
-    else if (checkState == 2)
-        return 0;
+    //access the specific piece from board
+    struct piece* attacker = gs->board[getRow(from)][getCol(from)];
+    struct piece* victim = gs->board[getRow(to)][getCol(to)];
 
-
-    //only use getScore after ensuring no checkmate condition
-    //base condition
-    if (depth == 0) return getScore(gs);
-
-    //playerColor = true (white), false (black)
-    if(playerColor)
+    //weight table
+    static const int weight[7]=
     {
-        int maxScore = -INF;
-        //for every move
-        for(int i = 0 ; i < moveCount; i++)
-        {
-            //makeMove(gs, moves[i]);
+        [King] = 0,
+        [Queen] = 900,
+        [Knight] = 300,
+        [Bishop] = 350,
+        [Rook] = 500,
+        [Ant] = 100,
+        [Anteater] = 330
+    };
 
-            int score = minimax(gs, depth - 1, alpha, beta, !playerColor);
+    //if not a capture, then return 0
+    if(!victim) return 0;
+    //if capture, subtract the victim's value by attackers value
+    //goal is to get the highest victim value, lowest attacker value
+    //ex: pawn->queen
+    return weight[victim->piece_] - weight[attacker->piece_];
 
-            //undoMove(gs, moves[i]);
+}
 
-            if(score > maxScore)
-                maxScore = score;
+void preSort(const struct gameState* gs, uint16_t* moves, int moveCount)
+{
+    //compute weights
+    int scores[MAX_MOVES];
+    for(int i = 0 ; i<moveCount; i++)
+        scores[i] = MVV_LVA(gs, moves[i]);
 
-            //recompute alpha and prune
-            alpha = MAX(alpha, maxScore);
-            if (beta <= alpha) break;
-        }
-
-        return maxScore;
-    }
-    else
+    //a modified version of insertion sort w/ shifting instead of swaps
+    //note : if i = 0, it would already be sorted, so just skip to next index 1
+    for(int i = 1; i<moveCount; i++)
     {
-        int minScore = INF;
-        //for every move
-        for(int i = 0 ; i < moveCount; i++)
+        uint16_t move =  moves[i];
+        int score = scores[i];
+
+        int j = i-1;
+        //while the current score is lower
+        while(j>=0 & scores[j] < score)
         {
-            //makeMove(gs, moves[i]);
-
-            int score = minimax(gs, depth - 1, alpha, beta, playerColor);
-
-            //undoMove(gs, moves[i]);
-
-            if(score < minScore)
-                minScore = score;
-
-            //recompute beta and prune
-            beta = MIN(beta, minScore);
-            if (beta <= alpha) break;
+            //shift elements forward (move worse element 1 unit right)
+            moves[j+1]=moves[j];
+            scores[j+1]=scores[j];
+            j--;
         }
-
-        return minScore;
+        //place in correct position after shifts
+        moves[j+1] = move;
+        scores[j+1] = score;
     }
-
 }
