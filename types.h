@@ -32,7 +32,7 @@ struct log {
     int history[1000];
 };
 
-struct GameState {
+struct gameState {
     struct piece* board[8][10];
     enum pieceColor currentPlayer;
 

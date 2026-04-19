@@ -4,19 +4,20 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include "types.h"
 
 //TEMPORARY DEFINITIONS
 //=======================================================
 typedef char* string;
 
-struct move {
-    struct pos pos1; // "a4", current position (from)
-    struct pos pos2; // "a5", destination (to)
-};
-
 struct pos {
     char rank; // "f"
     char file; // "4"
+};
+
+struct move {
+    struct pos pos1; // "a4", current position (from)
+    struct pos pos2; // "a5", destination (to)
 };
 
 struct location { // use to log moves
@@ -24,49 +25,7 @@ struct location { // use to log moves
     int col; // 0-7 (ex: 4)
 };
 
-struct log {
-    string move; // "a1 - j10"
-    int piece; // Black or White
-    int moveNumber; // 1-1000 for # of moves in the game
-    int history[1000];
-};
 
-enum PieceType {
-        King,
-        Queen,
-        Knight,
-        Bishop,
-        Rook,
-        Ant,
-        Anteater
-    };
-
-    enum PieceColor {
-       Black,
-       White 
-    };
-
-    struct piece {
-        enum PieceType piece_;
-        enum PieceColor color;
-    };
-
-struct gameState {
-    struct piece* board[8][10];
-    enum PieceColor currentPlayer;
-    struct location enPassantTile;
-    
-    //sides that castling is allowed (CastlingRights)
-    bool whiteKing_side;
-    bool whiteQueen_side;
-    bool blackKing_side;
-    bool blackQueen_side;
-
-    //trackers for move log + 50 turn draw rule
-    int halfMove_count;
-    int fullMove_count;
-    struct log move_log;
-};
 //=======================================================
 
 struct move* getMoves(int* moveCount);

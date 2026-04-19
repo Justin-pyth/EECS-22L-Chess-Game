@@ -57,7 +57,7 @@
         }
     }
 
-    void initGameState(struct GameState* state) {
+    void initGameState(struct gameState* state) {
         state->whiteKingMoved   = false;
         state->blackKingMoved   = false;
         state->whiteRookMovedQS = false;
@@ -216,7 +216,7 @@
     bool isCastlingValid(struct piece* board[8][10],
                          enum pieceColor color,
                          bool kingSide,
-                         struct GameState* state) {
+                         struct gameState* state) {
         int row     = (color == WHITE) ? 0 : 7;
         int kingCol = 5;
 
@@ -381,7 +381,7 @@
 int main(void) {
 
     struct piece*    board[8][10];
-    struct GameState state;
+    struct gameState state;
 
     initializeBoard(board);
     initGameState(&state);
