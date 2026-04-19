@@ -1,7 +1,6 @@
 #include "Moves.h"
-#include "Chess.c" // TODO: is this allowed? to get the enums and structs from Chess.c
 
-void getMoves(struct gameState* gs, struct move* moves, int* moveCount)
+void getMoves(struct gameState* gs, uint32_t* moves, int* moveCount)
 {
     ;
 }
@@ -26,6 +25,9 @@ bool isLegalMove(struct move moveMade, const struct gameState* gs)
         // if piece is in check, then the list of moves for that piece may or may not be a legal move
 }
 
+bool inCheck(struct gameState* gs) {
+    return 0;
+}
 
 /*
     makeMove()
