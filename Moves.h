@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 #include "types.h"
 
 //TEMPORARY DEFINITIONS
@@ -28,11 +29,13 @@ struct location { // use to log moves
 
 //=======================================================
 
-void getMoves(struct gameState* gs, struct move* moves, int* moveCount);
+void getMoves(struct gameState* gs, uint32_t* moves, int* moveCount);
 
 struct move* getLegalMoves(struct piece p, int* moveCount);
 
 bool isLegalMove(struct move, const struct gameState* gs);
+
+bool inCheck(struct gameState* gs);
 
 //Helper function (for move encoding/decoding)s:
 static inline uint32_t createMove(int fromRow, int fromCol, int toRow, int toCol, int flags) {
@@ -54,4 +57,22 @@ static inline int getToCol  (uint32_t move)
 { return (move >> 12)& 0xF; }
 static inline int getFlags  (uint32_t move)
 { return (move >> 16); }
+static inline int getFrom(uint32_t move)
+{
+    return (getFromRow(move) << 4) | getFromCol(move);
+}
+
+static inline int getTo(uint32_t move)
+{
+    return (getToRow(move) << 4) | getToCol(move);
+}
+static inline int getRow(int square)
+{
+    return (square >> 4) & 0xF;
+}
+
+static inline int getCol(int square)
+{
+    return square & 0xF;
+}
 #endif

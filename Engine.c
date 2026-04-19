@@ -43,7 +43,7 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
 
     //find all legal moves
     int moveCount = 0;
-    uint16_t moves[MAX_MOVES];
+    uint32_t moves[MAX_MOVES];
     getMoves(gs, moves, &moveCount);
     //sort according to MVV-LVA
     preSort(gs, moves, moveCount);
@@ -82,20 +82,20 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
     return bestScore;
 }
 
-uint16_t findBestMove(struct gameState* gs, int depth)
+uint32_t findBestMove(struct gameState* gs, int depth)
 {
     int maxScore = -INF;
 
     //get legal moves
     int moveCount = 0;
-    uint16_t moves[MAX_MOVES];
+    uint32_t moves[MAX_MOVES];
     getMoves(gs, moves, &moveCount);
     //sort according to MVV-LVA
     preSort(gs, moves, moveCount);
 
     //pick an initial move, maybe add randomness to this
     if(moveCount == 0) return 0; //<---if no legal moves, don't access moves[0]
-    uint16_t bestMove = moves[0];
+    uint32_t bestMove = moves[0];
     
     int alpha = -INF;
     int beta = INF;
@@ -147,12 +147,12 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
 
     }
 
-    uint16_t bestMove = findBestMove(gs, depth);
+    uint32_t bestMove = findBestMove(gs, depth);
     
     //makeMove(gs, bestMove)
 }
 
-int MVV_LVA(const struct gameState* gs, uint16_t move)
+int MVV_LVA(const struct gameState* gs, uint32_t move)
 {
     //get [from] and [to] tiles
     int from = getFrom(move);
@@ -183,7 +183,7 @@ int MVV_LVA(const struct gameState* gs, uint16_t move)
 
 }
 
-void preSort(const struct gameState* gs, uint16_t* moves, int moveCount)
+void preSort(const struct gameState* gs, uint32_t* moves, int moveCount)
 {
     //compute weights
     int scores[MAX_MOVES];
@@ -194,7 +194,7 @@ void preSort(const struct gameState* gs, uint16_t* moves, int moveCount)
     //note : if i = 0, it would already be sorted, so just skip to next index 1
     for(int i = 1; i<moveCount; i++)
     {
-        uint16_t move =  moves[i];
+        uint32_t move =  moves[i];
         int score = scores[i];
 
         int j = i-1;
