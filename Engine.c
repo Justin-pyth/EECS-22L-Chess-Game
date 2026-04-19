@@ -7,13 +7,13 @@ int getScore(const struct gameState* gs)
 
     static const int weight[7]=
     {
-        [King] = 0,
-        [Queen] = 900,
-        [Knight] = 300,
-        [Bishop] = 350,
-        [Rook] = 500,
-        [Ant] = 100,
-        [Anteater] = 330
+        [KING] = 0,
+        [QUEEN] = 900,
+        [KNIGHT] = 300,
+        [BISHOP] = 350,
+        [ROOK] = 500,
+        [ANT] = 100,
+        [ANTEATER] = 330
     };
 
     //ranks = rows (row)
@@ -27,15 +27,15 @@ int getScore(const struct gameState* gs)
             struct piece* p = gs->board[row][col];
             if (p) {
                 //get value of piece
-                int value = weight[p->piece_];
+                int value = weight[p->piece];
                 //if White, add the score, else if Black, subtract the score
-                score += (p->color == White) ? value : -value;
+                score += (p->color == WHITE) ? value : -value;
             }
         }
     }
 
     // return relative to side to move
-    return (gs->currentPlayer == White) ? score : -score;
+    return (gs->currentPlayer == WHITE) ? score : -score;
 }
 
 int negaMax(struct gameState* gs, int depth, int alpha, int beta)
@@ -165,13 +165,13 @@ int MVV_LVA(const struct gameState* gs, uint16_t move)
     //weight table
     static const int weight[7]=
     {
-        [King] = 0,
-        [Queen] = 900,
-        [Knight] = 300,
-        [Bishop] = 350,
-        [Rook] = 500,
-        [Ant] = 100,
-        [Anteater] = 330
+        [KING] = 0,
+        [QUEEN] = 900,
+        [KNIGHT] = 300,
+        [BISHOP] = 350,
+        [ROOK] = 500,
+        [ANT] = 100,
+        [ANTEATER] = 330
     };
 
     //if not a capture, then return 0
@@ -179,7 +179,7 @@ int MVV_LVA(const struct gameState* gs, uint16_t move)
     //if capture, subtract the victim's value by attackers value
     //goal is to get the highest victim value, lowest attacker value
     //ex: pawn->queen
-    return weight[victim->piece_] - weight[attacker->piece_];
+    return weight[victim->piece] - weight[attacker->piece];
 
 }
 
