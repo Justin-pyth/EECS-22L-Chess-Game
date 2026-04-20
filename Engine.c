@@ -65,11 +65,12 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
     int bestScore = -INF;
     for(int i = 0; i < moveCount; i++)
     {
-        //makeMove(gs, moves[i]);
+        struct MoveUndo u;
+        applyMove(gs, moves[i], &u);
 
         int score = -negaMax(gs, depth - 1, -beta, -alpha);
 
-        //undoMove(gs, moves[i]);
+        undoMove(gs, &u);
 
         if(score > bestScore)
             bestScore = score;
@@ -101,12 +102,12 @@ uint32_t findBestMove(struct gameState* gs, int depth)
     int beta = INF;
     for(int i = 0 ; i < moveCount; i++)
     {
-        //makeMove(gs, moves[i]);
+        struct MoveUndo u;
+        applyMove(gs, moves[i], &u);
 
-        // !!increase depth once more stable, 3 is testing depth, can be higher for smarter play!!
         int score = -negaMax(gs, depth - 1, -beta, -alpha);
 
-        //undoMove(gs, moves[i]);
+        undoMove(gs, &u);
 
         if(score > maxScore)
         {
@@ -124,32 +125,32 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
     srand(time(NULL));
     int depth = 0;
 
-    //example of dificulty
-    enum level
-    {
-        easy, medium, hard
-    };
+    /* Negative difficulty = hidden test mode: use absolute value as depth */
+    if (difficulty < 0) {
+        depth = -difficulty;
+    } else {
+        enum level { 
+            easy, 
+            medium, 
+            hard 
+        };
 
-    switch(difficulty)
-    {
-        // ** SHOULD CHANGE DEPTHS BASED ON TIME TESTING
-        case easy:
-            //pick random depth 1-4
-            depth = (rand() % 4 ) + 1;
-            break;
-        case medium:
-            //pick random depth 5-7
-            depth = (rand() % 3 ) + 5;
-            break;
-        case hard:
-            depth = 8;
-            break;
-
+        switch(difficulty)
+        {
+            case easy:
+                depth = (rand() % 4) + 1;
+                break;
+            case medium:
+                depth = (rand() % 3) + 5;
+                break;
+            case hard:
+                depth = 8;              
+                break;
+        }
     }
 
     uint32_t bestMove = findBestMove(gs, depth);
-    
-    //makeMove(gs, bestMove)
+    applyMove(gs, bestMove, NULL);
 }
 
 int MVV_LVA(const struct gameState* gs, uint32_t move)
