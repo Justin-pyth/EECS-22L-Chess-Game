@@ -60,7 +60,7 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
 
     //only use getScore after ensuring no checkmate condition
     //base condition
-    if (depth == 0) return getScore(gs);
+    if (depth <= 0) return getScore(gs);
 
     int bestScore = -INF;
     for(int i = 0; i < moveCount; i++)
@@ -125,29 +125,25 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
     srand(time(NULL));
     int depth = 0;
 
-    /* Negative difficulty = hidden test mode: use absolute value as depth */
-    if (difficulty < 0) {
-        depth = -difficulty;
-    } else {
         enum level { 
             easy, 
             medium, 
             hard 
         };
 
-        switch(difficulty)
-        {
-            case easy:
-                depth = (rand() % 4) + 1;
-                break;
-            case medium:
-                depth = (rand() % 3) + 5;
-                break;
-            case hard:
-                depth = 8;              
-                break;
-        }
+    switch(difficulty)
+    {
+        case easy:
+            depth = (rand() % 4) + 1;
+            break;
+        case medium:
+            depth = (rand() % 3) + 5;
+            break;
+        case hard:
+            depth = 8;              
+            break;
     }
+
 
     uint32_t bestMove = findBestMove(gs, depth);
     applyMove(gs, bestMove, NULL);
@@ -200,7 +196,7 @@ void preSort(const struct gameState* gs, uint32_t* moves, int moveCount)
 
         int j = i-1;
         //while the current score is lower
-        while(j>=0 & scores[j] < score)
+        while((j>=0) && (scores[j] < score))
         {
             //shift elements forward (move worse element 1 unit right)
             moves[j+1]=moves[j];

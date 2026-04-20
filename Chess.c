@@ -408,7 +408,6 @@ int main(void) {
         else if (mode == AI_VS_AI)       isHuman = false;
         else                             isHuman = (state.currentPlayer == humanColor);
 
-        Move chosen;
         if (isHuman) {
 
 
@@ -416,21 +415,18 @@ int main(void) {
             printf("\n%s's turn.\n", colorName);
 
 
-            
-            chosen = getHumanMove(&state);
+            Move chosen = getHumanMove(&state);
             if (!chosen) { printf("\nNo input — game ended.\n"); break; }
+            applyMove(&state, chosen, NULL);
         } else {
 
 
-            /* [REMOVE WHEN GUI ADDED] — keep findBestMove, remove printf */
+            /* [REMOVE WHEN GUI ADDED] — keep movePiece_Computer, remove printf */
             printf("\n%s's turn (AI). Thinking...\n", colorName);
 
 
-            chosen = findBestMove(&state, aiDifficulty);
-            if (!chosen) { printf("AI has no moves.\n"); break; }
+            movePiece_Computer(&state, aiDifficulty);
         }
-
-        applyMove(&state, chosen, NULL);
 
         if (state.currentPlayer == BLACK) moveNumber++;
 
