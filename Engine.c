@@ -25,12 +25,33 @@ int getScore(const struct gameState* gs)
         for(int col = 0 ; col < 10; col++)
         {
             struct piece* p = gs->board[row][col];
-            if (p) {
-                //get value of piece
-                int value = weight[p->piece];
-                //if White, add the score, else if Black, subtract the score
-                score += (p->color == WHITE) ? value : -value;
-            }
+            if (!p) continue;
+
+            //get value of piece
+            int value = weight[p->piece];
+            
+            //due to the engine picking the same pawn to move in a straight line
+            //positional multipliers were added
+
+            //give up to +35 bonus to increase pawn advancement
+            if (p->piece == ANT)
+                value += ((p->color == WHITE) ? row : (7-row)) * 5;
+            
+            //discourage these pieces from staying near their home row
+            if (p->piece == KNIGHT || p->piece == BISHOP || p->piece == ANTEATER)
+                if (!((p->color == WHITE) ? (row == 0) : (row == 7))) 
+                    value += 20;
+
+            //for all pieces, increase frequency that center tiles are occupied
+            if (col >= 3 && col <= 6 && row >= 2 && row <= 5)
+            //inner
+                value += 10;
+            else if (col >= 2 && col <= 7 && row >= 1 && row <= 6)
+            //outer
+                value += 5;
+
+            //if White, add the score, else if Black, subtract the score
+            score += (p->color == WHITE) ? value : -value;
         }
     }
 
