@@ -221,7 +221,7 @@ void preSort(const struct gameState* gs, uint32_t* moves, int moveCount)
 
         int j = i-1;
         //while the current score is lower
-        while(j>=0 & scores[j] < score)
+        while(j>=0 && scores[j] < score)
         {
             //shift elements forward (move worse element 1 unit right)
             moves[j+1]=moves[j];
