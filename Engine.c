@@ -5,17 +5,6 @@ int getScore(const struct gameState* gs)
     int score = 0;
     //int checkmate = 1e8;
 
-    static const int weight[7]=
-    {
-        [KING] = 0,
-        [QUEEN] = 900,
-        [KNIGHT] = 300,
-        [BISHOP] = 350,
-        [ROOK] = 500,
-        [ANT] = 100,
-        [ANTEATER] = 330
-    };
-
     //ranks = rows (row)
     //file  = columns (col)
 
@@ -184,17 +173,6 @@ int MVV_LVA(const struct gameState* gs, uint32_t move)
     struct piece* attacker = gs->board[getRow(from)][getCol(from)];
     struct piece* victim = gs->board[getRow(to)][getCol(to)];
 
-    //weight table
-    static const int weight[7]=
-    {
-        [KING] = 0,
-        [QUEEN] = 900,
-        [KNIGHT] = 300,
-        [BISHOP] = 350,
-        [ROOK] = 500,
-        [ANT] = 100,
-        [ANTEATER] = 330
-    };
 
     //if not a capture, then return 0
     if(!victim) return 0;
