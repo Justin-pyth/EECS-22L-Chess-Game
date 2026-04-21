@@ -24,13 +24,6 @@ struct location { // use to log moves
     int col; // 0-7 (ex: 4)
 };
 
-struct log {
-    string move; // "a1 - j10"
-    int piece; // Black or White
-    int moveNumber; // 1-1000 for # of moves in the game
-    int history[1000];
-};
-
 enum PieceType {
         King,
         Queen,
