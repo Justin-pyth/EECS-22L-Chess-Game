@@ -13,6 +13,17 @@
 #include <stdlib.h>
 #include "Moves.h"
 
+//weight table
+static const int weight[7]=
+{
+        [KING] = 0,
+        [QUEEN] = 900,
+        [KNIGHT] = 300,
+        [BISHOP] = 350,
+        [ROOK] = 500,
+        [ANT] = 100,
+        [ANTEATER] = 330
+};
 
 //retrieve the score by computing total weights of pieces on board
 int getScore(const struct gameState* gs);
