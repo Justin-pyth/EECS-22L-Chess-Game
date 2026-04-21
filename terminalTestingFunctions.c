@@ -107,7 +107,7 @@ int promptDifficulty(void) {
         if (input[0] == '1') return 0;
         if (input[0] == '2') return 1;
         if (input[0] == '3') return 2;
-        /* Hidden: "testingX" sets engine depth directly to X (negative sentinel) */
+        /* Hidden: "testingX" sets engine to exact depth X (negative sentinel) */
         int testDepth = 0;
         if (sscanf(input, "testing%d", &testDepth) == 1 && testDepth > 0)
             return -testDepth;
