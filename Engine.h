@@ -8,9 +8,6 @@
 #define MAX_MOVES 1024
 
 
-#include <time.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include "Moves.h"
 
 //weight table

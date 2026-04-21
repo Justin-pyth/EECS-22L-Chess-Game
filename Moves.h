@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <time.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include "types.h"
 
 #define MAX_MOVES 1024

@@ -132,25 +132,25 @@ uint32_t findBestMove(struct gameState* gs, int depth)
 
 void movePiece_Computer(struct gameState* gs, int difficulty)
 {
-    srand(time(NULL));
+    
     int depth = 0;
 
         enum level { 
-            easy, 
-            medium, 
-            hard 
+            easy = 1, 
+            medium = 2, 
+            hard = 3
         };
 
     switch(difficulty)
     {
         case easy:
-            depth = (rand() % 4) + 1;
+            depth = (rand() % 2) + 1;
             break;
         case medium:
-            depth = (rand() % 3) + 5;
+            depth = (rand() % 2) + 3;
             break;
         case hard:
-            depth = 8;              
+            depth = 5;              
             break;
     }
 

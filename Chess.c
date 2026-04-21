@@ -372,6 +372,7 @@
 
 int main(void) {
 
+    srand(time(NULL));
     struct gameState state;
     initGameState(&state);
     initializeBoard(state.board);
