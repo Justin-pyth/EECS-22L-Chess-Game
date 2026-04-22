@@ -57,7 +57,7 @@
         }
     }
 
-    void initGameState(struct GameState* state) {
+    void initGameState(struct gameState* state) {
         state->whiteKingMoved   = false;
         state->blackKingMoved   = false;
         state->whiteRookMovedQS = false;
@@ -66,6 +66,9 @@
         state->blackRookMovedKS = false;
         state->enPassantCol     = -1;
         state->enPassantRow     = -1;
+        state->currentPlayer    = WHITE;
+        state->halfMove_count   = 0;
+        state->fullMove_count   = 1;
     }
 
     //HELPER FUNCTIONS
@@ -216,7 +219,7 @@
     bool isCastlingValid(struct piece* board[8][10],
                          enum pieceColor color,
                          bool kingSide,
-                         struct GameState* state) {
+                         struct gameState* state) {
         int row     = (color == WHITE) ? 0 : 7;
         int kingCol = 5;
 
@@ -276,10 +279,8 @@
         return true;
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Promotion                                                            */
-    /* ------------------------------------------------------------------ */
 
+    //Promotion
     struct piece* allocatePromotion(enum pieceType type, enum pieceColor color) {
         if (promotionCount >= 40) return NULL;  /* should never happen */
         promotionPool[promotionCount] = (struct piece){.piece = type, .color = color};
@@ -318,30 +319,20 @@
         return isSquareAttackedBy(board, kingRow, kingCol, opp);
     }
 
-    bool isCheckmate(struct piece* board[8][10],
-                     enum pieceColor color) {
-        if (!isKingInCheck(board, color)) {
-            return false;
-        }
-
-        /* PSEUDO: int moves = countLegalMoves(board, color); */
-        /* PSEUDO: return (moves == 0);                       */
-
-        /* Temporary stub — always returns false until
-         * countLegalMoves() is integrated.                   */
-        return false;
+    bool isCheckmate(struct gameState* gs) {
+        if (!inCheck(gs)) return false;
+        Move moves[MAX_MOVES];
+        int count = 0;
+        getMoves(gs, moves, &count);
+        return count == 0;
     }
 
-    bool isStalemate(struct piece* board[8][10],
-                     enum pieceColor color) {
-        if (isKingInCheck(board, color)) {
-            return false;
-        }
-
-        /* PSEUDO: int moves = countLegalMoves(board, color); */
-        /* PSEUDO: return (moves == 0);                       */
-
-        return false;
+    bool isStalemate(struct gameState* gs) {
+        if (inCheck(gs)) return false;
+        Move moves[MAX_MOVES];
+        int count = 0;
+        getMoves(gs, moves, &count);
+        return count == 0;
     }
 
 
@@ -356,6 +347,7 @@
         int blackMajor = 0, blackMate = 0;
         int whiteMinor = 0, blackMinor = 0; /* bishops, knights, anteaters */
 
+        //Iterate over the board and count material. Skip kings since they don't affect sufficiency.
         for (int r = 0; r < 8; r++)
             for (int c = 0; c < 10; c++) {
                 struct piece* p = board[r][c];
@@ -380,73 +372,109 @@
 
 int main(void) {
 
-    struct piece*    board[8][10];
-    struct GameState state;
-
-    initializeBoard(board);
+    srand(time(NULL));
+    struct gameState state;
     initGameState(&state);
+    initializeBoard(state.board);
 
+    /* [REMOVE WHEN GUI ADDED] — terminal game-mode and difficulty prompts */
     enum gameMode mode = promptGameMode();
 
     enum pieceColor humanColor = WHITE;
-    int aiDifficulty = 1;   
+    int aiDifficulty = 1;
     if (mode == HUMAN_VS_AI) {
-        humanColor = promptColorChoice();
+
+
+        /* [REMOVE WHEN GUI ADDED] */
+        humanColor   = promptColorChoice();
         aiDifficulty = promptDifficulty();
+
+
     } else if (mode == AI_VS_AI) {
+
+
+        /* [REMOVE WHEN GUI ADDED] */
         aiDifficulty = promptDifficulty();
+        
     }
 
-    // logFile = openLogFile("chess_game.log");
+    /* [REMOVE WHEN GUI ADDED] — terminal board print */
+    printBoard(state.board);
 
-    printBoard(board);
+    while (1) {
+        const char* colorName = (state.currentPlayer == WHITE) ? "White" : "Black";
 
-    enum pieceColor currentTurn = WHITE;   // White always moves first
-    bool gameContinue = true;
-
-    while (gameContinue) {
-        int fromRow, fromCol, toRow, toCol;
-
-        // Determine whether the current player is human or AI
         bool isHuman;
         if      (mode == HUMAN_VS_HUMAN) isHuman = true;
         else if (mode == AI_VS_AI)       isHuman = false;
-        else                             isHuman = (currentTurn == humanColor);
-
-        const char* colorName = (currentTurn == WHITE) ? "White" : "Black";
+        else                             isHuman = (state.currentPlayer == humanColor);
 
         if (isHuman) {
+
+
+            /* [REMOVE WHEN GUI ADDED] — replace with GUI move input */
             printf("\n%s's turn.\n", colorName);
 
-            /*
-            if (!getHumanMove(board, currentTurn, &state,
-                              &fromRow, &fromCol, &toRow, &toCol)) {
-                printf("\nNo input — game ended.\n");
-                break;
-            }
-             */
 
-            //makeMove(board, fromRow, fromCol, toRow, toCol,currentTurn, &state);
-
-            /* PSEUDO: logMove(logFile, moveNumber, currentTurn,
-             *                 fromRow, fromCol, toRow, toCol);   */
-
+            Move chosen = getHumanMove(&state);
+            if (!chosen) { printf("\nNo input — game ended.\n"); break; }
+            applyMove(&state, chosen, NULL);
         } else {
+
+
+            /* [REMOVE WHEN GUI ADDED] — keep movePiece_Computer, remove printf */
             printf("\n%s's turn (AI). Thinking...\n", colorName);
-            //movePiece_Computer(board, &state, currentTurn, aiDifficulty);
+
+
+            movePiece_Computer(&state, aiDifficulty);
         }
 
-        enum pieceColor nextTurn = (currentTurn == WHITE) ? BLACK : WHITE;
+        if (state.currentPlayer == BLACK) moveNumber++;
 
-        printBoard(board);
 
-        enum pieceColor justMoved = currentTurn;
 
-    
-        if (currentTurn == BLACK) moveNumber++;
-        currentTurn = nextTurn;
+        /* [REMOVE WHEN GUI ADDED] — terminal board print after each move */
+        printBoard(state.board);
+
+
+        if (isCheckmate(&state)) {
+            const char* winner = (state.currentPlayer == WHITE) ? "Black" : "White";
+
+
+            /* [REMOVE WHEN GUI ADDED] — replace with GUI game-over signal */
+            printf("\nCheckmate! %s wins.\n", winner);
+
+
+            break;
+        }
+        if (isStalemate(&state)) {
+
+
+            /* [REMOVE WHEN GUI ADDED] */
+            printf("\nStalemate! Draw.\n");
+
+
+            break;
+        }
+        if (state.halfMove_count >= 100) {
+
+
+            /* [REMOVE WHEN GUI ADDED] */
+            printf("\nDraw by fifty-move rule.\n");
+
+
+            break;
+        }
+        if (hasInsufficientMaterial(state.board)) {
+
+
+            /* [REMOVE WHEN GUI ADDED] */
+            printf("\nDraw by insufficient material.\n");
+
+
+            break;
+        }
     }
 
-    // closeLogFile(logFile);
     return 0;
 }

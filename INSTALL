@@ -1,0 +1,5 @@
+tar -xvzf Chess_Alpha_src.tar.gz
+cd Chess_Alpha_src
+
+Run:
+make
