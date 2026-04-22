@@ -421,14 +421,14 @@ void applyMove(struct gameState* gs, Move m, struct MoveUndo* u)
             int dr = (tr > fr) ? 1 : (tr < fr) ? -1 : 0;
             int dc = (tc > fc) ? 1 : (tc < fc) ? -1 : 0;
             for (int row = fr + dr, col = fc + dc;
-                 row != tr || col != tc;
-                 row += dr, col += dc) {
+                (row != tr || col != tc) && row >= 0 && row < 8 && col >= 0 && col < 10;
+                row += dr, col += dc) {
                 if (gs->board[row][col] && gs->board[row][col]->piece == ANT)
                     gs->board[row][col] = NULL;
             }
             isCapture = true;
             break;
-        }
+}
     }
 
     if (moving->piece == KING) {
