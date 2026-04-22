@@ -1,5 +1,21 @@
 #include "Engine.h"
+
 int nodeCount = 0;
+const int weight[7] =
+{
+    [KING]     = 0,
+    [QUEEN]    = 900,
+    [KNIGHT]   = 300,
+    [BISHOP]   = 350,
+    [ROOK]     = 500,
+    [ANT]      = 100,
+    [ANTEATER] = 330
+};
+//start of killer move implementation
+uint32_t K_MOVES[32][2];    //max depth, 2 killer moves stored per depth
+//history implementation
+int HISTORY[8][10][8][10];  //row col row col
+
 int getScore(const struct gameState* gs)
 {
     int score = 0;
@@ -31,6 +47,66 @@ int getScore(const struct gameState* gs)
                 if (!((p->color == WHITE) ? (row == 0) : (row == 7))) 
                     value += 20;
 
+            if (p->piece == ANTEATER) 
+            {
+                int near_Ant = 0;
+                int chainAnt = 0;
+                enum pieceColor opponent_color = (p->color == WHITE) ? BLACK : WHITE;
+
+                //(deltaR, deltaC) <--- (change in row, change in col)
+                //iterate through all directions aka 1 move in orthogonal or diagonal 
+                for(int deltaRow = -1 ; deltaRow <= 1 ; deltaRow++)
+                {
+                    for(int deltaCol = -1; deltaCol <= 1 ; deltaCol++)
+                    {
+                        //ignore self
+                        if(deltaRow == 0 && deltaCol == 0) continue;
+
+                        //find new row and col
+                        int newRow = row + deltaRow;
+                        int newCol = col + deltaCol;
+                        //make sure its not out of bounds ... segfault
+                        if (newRow < 0 || newRow >= 8 || newCol < 0 || newCol >= 10) continue;
+
+                        //identify the victim
+                        struct piece* victim = gs->board[newRow][newCol];
+
+                        //check if theres a piece there, check if its an ant,  check if its the color of opponent
+                        if(victim && victim->piece == ANT && victim->color == opponent_color)
+                        {
+                            near_Ant++; //theres an ant nearby
+
+                            //scan through chaining
+                            int chainRow = newRow + deltaRow;
+                            int chainCol = newCol + deltaCol;
+
+                            //while in bounds
+                            while(chainRow >= 0 && chainRow < 8 && chainCol >= 0 && chainCol < 10)
+                            {
+                                struct piece* chainVictim = gs->board[chainRow][chainCol];;
+
+                                if(!chainVictim || chainVictim->piece != ANT || chainVictim->color != opponent_color) break;
+
+                                //new ant to chain
+                                chainAnt++;
+                                //check next
+                                chainRow += deltaRow;
+                                chainCol += deltaCol;
+                            }
+                        }
+                    }
+                }
+
+                //bonuses (arbitrary TO ADJUST LATER)
+                value += near_Ant * 5;
+                value += MIN(chainAnt, 4) * 3;
+
+
+                //increase value for ability to capture on current turn
+                if(near_Ant > 0)
+                    value += 10;
+            }
+
             //for all pieces, increase frequency that center tiles are occupied
             if (col >= 3 && col <= 6 && row >= 2 && row <= 5)
             //inner
@@ -55,9 +131,6 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
     int moveCount = 0;
     uint32_t moves[MAX_MOVES];
     getMoves(gs, moves, &moveCount);
-    //sort according to MVV-LVA
-    preSort(gs, moves, moveCount);
-
 
     //if no legal moves
     if(moveCount == 0)
@@ -71,6 +144,22 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
     //only use getScore after ensuring no checkmate condition
     //base condition
     if (depth <= 0) return getScore(gs);
+
+    //sort according to MVV-LVA (after base conditions)
+    preSort(gs, moves, moveCount);
+
+    //place the killer moves in front, note that moves[0] will contain the best move from preSort
+    //which could possibly be better than killer moves so start at 1 to avoid that
+    for (int i = 1; i < moveCount; i++) 
+    {
+        if (moves[i] == K_MOVES[depth][0] || moves[i] == K_MOVES[depth][1]) 
+        {
+            uint32_t tempMove = moves[i];
+            moves[i] = moves[0];
+            moves[0] = tempMove;
+            break;
+        }
+    }
 
     int bestScore = -INF;
     for(int i = 0; i < moveCount; i++)
@@ -87,25 +176,63 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
 
         //recompute alpha and prune
         alpha = MAX(alpha, bestScore);
-        if (beta <= alpha) break;
+        if (beta <= alpha)
+        {
+            //store moves that cause beta-cut off AKA very one-sided move
+            //so it stores the worst move trees for the previous player, which are the best moves for the current
+            //since sides switch
+            if (gs->board[getToRow(moves[i])][getToCol(moves[i])] == NULL) 
+            {
+                K_MOVES[depth][1] = K_MOVES[depth][0];
+                K_MOVES[depth][0] = moves[i];
+                //increment history since a move caused beta-cutoff
+                HISTORY[getFromRow(moves[i])][getFromCol(moves[i])][getToRow(moves[i])][getToCol(moves[i])] += depth * depth; //give higher scores at higher depths
+                //^ a high depth means that it is early on into the tree, a move that is causing beta-cutoff early into the tree is seen as the best move for the next player
+            }
+            break;
+        }
     }
 
     return bestScore;
 }
 
-uint32_t findBestMove(struct gameState* gs, int depth)
+uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
 {
+    nodeCount++;
     int maxScore = -INF;
-
     //get legal moves
     int moveCount = 0;
     uint32_t moves[MAX_MOVES];
     getMoves(gs, moves, &moveCount);
-    //sort according to MVV-LVA
-    preSort(gs, moves, moveCount);
 
     //pick an initial move, maybe add randomness to this
     if(moveCount == 0) return 0; //<---if no legal moves, don't access moves[0]
+
+    //if pvMove exists, aka not first depth to be searched
+    if (pvMove != 0) 
+    {   
+        //iterate through each move
+        for (int i = 0; i < moveCount; i++) 
+        {
+            //find the previous best move
+            if (moves[i] == pvMove) 
+            {
+                //put the previous best move in front of the movesList
+                uint32_t temp = moves[0];
+                moves[0] = moves[i];
+                moves[i] = temp;
+                break;
+            }
+        }
+    }
+
+    //index offset so the previous best move remains in front
+    if (moveCount > 1) {
+        //sort according to MVV-LVA + History
+        preSort(gs, &moves[1], moveCount - 1);
+    }
+
+
     uint32_t bestMove = moves[0];
     
     int alpha = -INF;
@@ -125,8 +252,33 @@ uint32_t findBestMove(struct gameState* gs, int depth)
             bestMove = moves[i];
         }
         alpha = MAX(alpha, maxScore);
+        if(beta <= alpha) break;
     }
 
+    return bestMove;
+}
+
+
+uint32_t findBestMove(struct gameState* gs, int depth)
+{
+    //reset killer moves and history
+    memset(K_MOVES, 0, sizeof(K_MOVES));
+    memset(HISTORY, 0, sizeof(HISTORY));
+    uint32_t bestMove = 0;
+    uint32_t previousBestMove = 0;
+
+    //iterate at each depth
+    for(int i = 1 ; i <= depth; i++)
+    {
+        //return the best move at the depth
+        uint32_t move = depthSearch(gs, i, previousBestMove);
+        //if move is valid, then set it as best
+        if(move != 0)
+        {
+            bestMove = move;
+            previousBestMove = move;
+        }
+    }
     return bestMove;
 }
 
@@ -139,13 +291,13 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
     switch(difficulty)
     {
         case 0:
-            depth = (rand() % 2) + 1;; //1 or 2
+            depth = (rand() % 2) + 1; //1 or 2
             break;
         case 1:
             depth = (rand() % 2) + 3; //3 or 4
             break;
         case 2:
-            depth = 5; //5            
+            depth = 5; //4 set to 5 or more later            
             break;
     }
 
@@ -156,17 +308,16 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
 
 int MVV_LVA(const struct gameState* gs, uint32_t move)
 {
-    //get [from] and [to] tiles
-    int from = getFrom(move);
-    int to = getTo(move);
 
     //access the specific piece from board
-    struct piece* attacker = gs->board[getRow(from)][getCol(from)];
-    struct piece* victim = gs->board[getRow(to)][getCol(to)];
+    struct piece* attacker = gs->board[getFromRow(move)][getFromCol(move)];
+    struct piece* victim = gs->board[getToRow(move)][getToCol(move)];
 
 
-    //if not a capture, then return 0
-    if(!victim) return 0;
+    //if not a capture, then 
+    //if its a non capture move, return the score as the history to preSort
+    if(!victim)
+        return HISTORY[getFromRow(move)][getFromCol(move)][getToRow(move)][getToCol(move)];
     //if capture, subtract the victim's value by attackers value
     //goal is to get the highest victim value, lowest attacker value
     //ex: pawn->queen

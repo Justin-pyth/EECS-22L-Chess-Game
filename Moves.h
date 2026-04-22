@@ -66,12 +66,6 @@ static inline int getToRow  (uint32_t move) { return (move >>  8) & 0xF; }
 static inline int getToCol  (uint32_t move) { return (move >> 12) & 0xF; }
 static inline int getFlags  (uint32_t move) { return (move >> 16);       }
 
-/* combined from/to accessors used by Engine.c */
-static inline int getFrom(uint32_t move) { return  move        & 0xFF; }
-static inline int getTo  (uint32_t move) { return (move >>  8) & 0xFF; }
-static inline int getRow (int pos)       { return  pos         & 0xF;  }
-static inline int getCol (int pos)       { return (pos >>  4)  & 0xF;  }
-
 /* ── Function declarations ──────────────────────────────────────────── */
 
 /* Primary move generator — fills moves[] with all legal moves for the

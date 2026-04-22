@@ -11,16 +11,8 @@
 #include "Moves.h"
 extern int nodeCount;
 //weight table
-static const int weight[7]=
-{
-        [KING] = 0,
-        [QUEEN] = 900,
-        [KNIGHT] = 300,
-        [BISHOP] = 350,
-        [ROOK] = 500,
-        [ANT] = 100,
-        [ANTEATER] = 330
-};
+extern const int weight[7];
+extern int HISTORY[8][10][8][10];
 
 //retrieve the score by computing total weights of pieces on board
 int getScore(const struct gameState* gs);
@@ -29,6 +21,8 @@ int getScore(const struct gameState* gs);
 //the highest score is returned if white, otherwise, the lowest score
 int miniMax(const struct gameState* gs, int depth, int alpha, int beta, bool playerColor);
 
+
+uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove);
 //acts as a wrapper for miniMax, returning bestMove, based off depth <--- determines difficulty
 uint32_t findBestMove(struct gameState* gs, int depth);
 
