@@ -135,22 +135,17 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
     
     int depth = 0;
 
-        enum level { 
-            easy = 1, 
-            medium = 2, 
-            hard = 3
-        };
 
     switch(difficulty)
     {
-        case easy:
-            depth = (rand() % 2) + 1;
+        case 0:
+            depth = 1;
             break;
-        case medium:
-            depth = (rand() % 2) + 3;
+        case 1:
+            depth = 2;
             break;
-        case hard:
-            depth = 5;              
+        case 2:
+            depth = 3;              
             break;
     }
 
