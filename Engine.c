@@ -1,5 +1,5 @@
 #include "Engine.h"
-
+int nodeCount = 0;
 int getScore(const struct gameState* gs)
 {
     int score = 0;
@@ -50,7 +50,7 @@ int getScore(const struct gameState* gs)
 
 int negaMax(struct gameState* gs, int depth, int alpha, int beta)
 {
-
+    nodeCount++;
     //find all legal moves
     int moveCount = 0;
     uint32_t moves[MAX_MOVES];
@@ -139,13 +139,13 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
     switch(difficulty)
     {
         case 0:
-            depth = 1;
+            depth = (rand() % 2) + 1;; //1 or 2
             break;
         case 1:
-            depth = 2;
+            depth = (rand() % 2) + 3; //3 or 4
             break;
         case 2:
-            depth = 3;              
+            depth = 5; //5            
             break;
     }
 

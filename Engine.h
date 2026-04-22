@@ -9,7 +9,7 @@
 
 
 #include "Moves.h"
-
+extern int nodeCount;
 //weight table
 static const int weight[7]=
 {

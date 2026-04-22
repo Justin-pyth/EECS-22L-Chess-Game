@@ -13,6 +13,15 @@
 
     int moveNumber = 1;
 
+    int timedMoves = 0;
+    double totalTime = 0.0;
+
+    void printStats(double totalTime, int timedMoves, int totalNodes)
+    {
+        if (timedMoves == 0) return;
+            printf("AverageTime: %.3f , TotalMoves: %d , AverageNodes: %d\n", totalTime / timedMoves, timedMoves, totalNodes / timedMoves);
+    }
+
     //Promotion piece pool — up to 40 promotions per game                 
     static struct piece promotionPool[40];
     static int promotionCount = 0;
@@ -425,8 +434,12 @@ int main(void) {
             /* [REMOVE WHEN GUI ADDED] — keep movePiece_Computer, remove printf */
             printf("\n%s's turn (AI). Thinking...\n", colorName);
 
-
+            clock_t start = clock();
             movePiece_Computer(&state, aiDifficulty);
+            clock_t end = clock();
+            totalTime += (double)(end - start) / CLOCKS_PER_SEC;
+            timedMoves++;
+            printf("MoveTime: %.3f seconds\n", (double)(end - start) / CLOCKS_PER_SEC);
         }
 
         if (state.currentPlayer == BLACK) moveNumber++;
@@ -444,7 +457,7 @@ int main(void) {
             /* [REMOVE WHEN GUI ADDED] — replace with GUI game-over signal */
             printf("\nCheckmate! %s wins.\n", winner);
 
-
+            printStats(totalTime, timedMoves, nodeCount);
             break;
         }
         if (isStalemate(&state)) {
@@ -453,7 +466,7 @@ int main(void) {
             /* [REMOVE WHEN GUI ADDED] */
             printf("\nStalemate! Draw.\n");
 
-
+            printStats(totalTime, timedMoves, nodeCount);
             break;
         }
         if (state.halfMove_count >= 100) {
@@ -462,7 +475,7 @@ int main(void) {
             /* [REMOVE WHEN GUI ADDED] */
             printf("\nDraw by fifty-move rule.\n");
 
-
+            printStats(totalTime, timedMoves, nodeCount);
             break;
         }
         if (hasInsufficientMaterial(state.board)) {
@@ -471,7 +484,7 @@ int main(void) {
             /* [REMOVE WHEN GUI ADDED] */
             printf("\nDraw by insufficient material.\n");
 
-
+            printStats(totalTime, timedMoves, nodeCount);
             break;
         }
     }
