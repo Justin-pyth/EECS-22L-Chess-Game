@@ -3,7 +3,9 @@
 #include <string.h>
 #include <ctype.h>
 #include "types.h"
+#ifndef GUI_BUILD
 #include "terminalTestingFunctions.h"
+#endif
 #include "Engine.h"
 #include "Moves.h"
 
@@ -213,8 +215,8 @@
      *
      * Board layout (row 0 = white, row 7 = black):
      *   King col 5 (F), queenside rook col 0 (A), kingside rook col 9 (J)
-     *   Kingside:  king F→H (5→7), rook moves J(9)→G(6)
-     *   Queenside: king F→D (5→3), rook moves A(0)→E(4)
+     *   Kingside:  king F->H (5->7), rook moves J(9)->G(6)
+     *   Queenside: king F->D (5->3), rook moves A(0)->E(4)
      */
     bool isCastlingValid(struct piece* board[8][10],
                          enum pieceColor color,
@@ -223,12 +225,10 @@
         int row     = (color == WHITE) ? 0 : 7;
         int kingCol = 5;
 
-        // King must not have moved
         bool kingMoved = (color == WHITE) ? state->whiteKingMoved
                                            : state->blackKingMoved;
         if (kingMoved) return false;
 
-        // Rook must not have moved; identify which rook and destination squares
         bool rookMoved;
         int rookCol, kingDestCol;
 
@@ -245,21 +245,16 @@
         }
         if (rookMoved) return false;
 
-        // Rook must still be on its original square
         if (board[row][rookCol] == NULL ||
             board[row][rookCol]->piece != ROOK ||
             board[row][rookCol]->color != color) return false;
 
-        // Every square between king and rook must be empty
         int step = kingSide ? 1 : -1;
         for (int c = kingCol + step; c != rookCol; c += step)
             if (board[row][c] != NULL) return false;
 
-        // King must not be in check in its current position
         if (isKingInCheck(board, color)) return false;
 
-        // King must not pass through or land on an attacked square.
-        // Simulate the king at each square from kingCol+step through kingDestCol.
         enum pieceColor opp    = (color == WHITE) ? BLACK : WHITE;
         struct piece*   kPiece = board[row][kingCol];
 
@@ -282,11 +277,12 @@
 
     //Promotion
     struct piece* allocatePromotion(enum pieceType type, enum pieceColor color) {
-        if (promotionCount >= 40) return NULL;  /* should never happen */
+        if (promotionCount >= 40) return NULL;
         promotionPool[promotionCount] = (struct piece){.piece = type, .color = color};
         return &promotionPool[promotionCount++];
     }
 
+#ifndef GUI_BUILD
     /*
      * promptPromotion — asks which piece to promote to.
      * Returns QUEEN on EOF (safe default).
@@ -308,8 +304,7 @@
             fflush(stdout);
         }
     }
-
-    
+#endif
 
     //Game State
     bool isKingInCheck(struct piece* board[8][10], enum pieceColor color) {
@@ -335,19 +330,11 @@
         return count == 0;
     }
 
-
-    // hasInsufficientMaterial — returns true when neither side can
-    // ever deliver checkmate regardless of play:
-    //   - King vs King
-    //   - King + Bishop vs King
-    //   - King + Knight vs King
-    // (In this variant the anteater is also considered minor material.)
     static bool hasInsufficientMaterial(struct piece* board[8][10]) {
-        int whiteMajor = 0, whiteMate = 0;  /* queens, rooks, ants */
+        int whiteMajor = 0, whiteMate = 0;
         int blackMajor = 0, blackMate = 0;
-        int whiteMinor = 0, blackMinor = 0; /* bishops, knights, anteaters */
+        int whiteMinor = 0, blackMinor = 0;
 
-        //Iterate over the board and count material. Skip kings since they don't affect sufficiency.
         for (int r = 0; r < 8; r++)
             for (int c = 0; c < 10; c++) {
                 struct piece* p = board[r][c];
@@ -363,41 +350,29 @@
                 (void)mate;
             }
 
-        /* Either side has a mating piece → material is sufficient */
         if (whiteMajor > 0 || blackMajor > 0) return false;
-        /* King + 2 minors can force mate; King + 1 minor cannot    */
         if (whiteMinor >= 2 || blackMinor >= 2) return false;
         return true;
     }
 
+#ifndef GUI_BUILD
 int main(void) {
 
     struct gameState state;
     initGameState(&state);
     initializeBoard(state.board);
 
-    /* [REMOVE WHEN GUI ADDED] — terminal game-mode and difficulty prompts */
     enum gameMode mode = promptGameMode();
 
     enum pieceColor humanColor = WHITE;
     int aiDifficulty = 1;
     if (mode == HUMAN_VS_AI) {
-
-
-        /* [REMOVE WHEN GUI ADDED] */
         humanColor   = promptColorChoice();
         aiDifficulty = promptDifficulty();
-
-
     } else if (mode == AI_VS_AI) {
-
-
-        /* [REMOVE WHEN GUI ADDED] */
         aiDifficulty = promptDifficulty();
-        
     }
 
-    /* [REMOVE WHEN GUI ADDED] — terminal board print */
     printBoard(state.board);
 
     while (1) {
@@ -409,71 +384,38 @@ int main(void) {
         else                             isHuman = (state.currentPlayer == humanColor);
 
         if (isHuman) {
-
-
-            /* [REMOVE WHEN GUI ADDED] — replace with GUI move input */
             printf("\n%s's turn.\n", colorName);
-
-
             Move chosen = getHumanMove(&state);
             if (!chosen) { printf("\nNo input — game ended.\n"); break; }
             applyMove(&state, chosen, NULL);
         } else {
-
-
-            /* [REMOVE WHEN GUI ADDED] — keep movePiece_Computer, remove printf */
             printf("\n%s's turn (AI). Thinking...\n", colorName);
-
-
             movePiece_Computer(&state, aiDifficulty);
         }
 
         if (state.currentPlayer == BLACK) moveNumber++;
 
-
-
-        /* [REMOVE WHEN GUI ADDED] — terminal board print after each move */
         printBoard(state.board);
-
 
         if (isCheckmate(&state)) {
             const char* winner = (state.currentPlayer == WHITE) ? "Black" : "White";
-
-
-            /* [REMOVE WHEN GUI ADDED] — replace with GUI game-over signal */
             printf("\nCheckmate! %s wins.\n", winner);
-
-
             break;
         }
         if (isStalemate(&state)) {
-
-
-            /* [REMOVE WHEN GUI ADDED] */
             printf("\nStalemate! Draw.\n");
-
-
             break;
         }
         if (state.halfMove_count >= 100) {
-
-
-            /* [REMOVE WHEN GUI ADDED] */
             printf("\nDraw by fifty-move rule.\n");
-
-
             break;
         }
         if (hasInsufficientMaterial(state.board)) {
-
-
-            /* [REMOVE WHEN GUI ADDED] */
             printf("\nDraw by insufficient material.\n");
-
-
             break;
         }
     }
 
     return 0;
 }
+#endif

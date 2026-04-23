@@ -2,8 +2,12 @@
 #define ENGINE_H
 
 //useful utility functions for alpha-beta minimax
+#ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+#ifndef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
 #define INF 1000000
 #define MAX_MOVES 1024
 
