@@ -5,11 +5,11 @@
 #include <stdint.h>
 
 enum pieceType {
-    KING, QUEEN, KNIGHT, BISHOP, ROOK, ANT, ANTEATER
+    ANT, ROOK, KNIGHT, BISHOP, QUEEN, ANTEATER, KING, 
 };
 
 enum pieceColor {
-    BLACK, WHITE
+    WHITE, BLACK
 };
 
 enum gameMode {

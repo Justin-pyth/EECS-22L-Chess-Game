@@ -8,13 +8,23 @@ struct log {
     int history[1000];
 };
 
-//Logs move made by chess user into the log
-void logMove (struct pos position, struct piece* Piece, const struct log logOfMoves);
+//Encodes the board position fof a piece + piece type into a 3-digit int
+int encodeLocation(struct location loc, enum pieceType type);
 
-//Converts move in the log to chess notation for the user
-char[] convertLogMove (const struct log* Log);
+//Decodes encoded position back into piece type, row, and column
+void decodeLocation(int encoded, enum pieceType* type, struct location* loc);
 
 //Converts the position characters into ints to be used on the board
-void convertPos (struct pos position);
+void locationToNotation(struct location loc, char* buf, int bufSize);
+
+//Encodes the origin to destination into a 6-digit int
+int encodeMoveLocation(struct location from, struct location to, struct piece* Piece);
+
+//Logs move made by chess user into the log
+//Odd moves = from, even moves = to
+void logMove (struct move moves, struct piece* Piece, const struct log* logOfMoves);
+
+// Converts encoded move from history and returns it as a readable string
+char* convertLogMove(const struct log* Log, int moveIndex);
 
 #endif
