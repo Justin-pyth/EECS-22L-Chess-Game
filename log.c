@@ -10,7 +10,7 @@ int encodeLocation(struct location loc, enum pieceType type) {
 }
 
 void decodeLocation(int encoded, enum pieceType* type, struct location* loc) {
-    *type   = (enum pieceType)(encoded / 100);
+    *type = (enum pieceType)(encoded / 100);
     encoded %= 100;
     loc->col = encoded / 10;
     loc->row = encoded % 10;
@@ -23,11 +23,9 @@ void locationToNotation(struct location loc, char* buf, int bufSize) {
     snprintf(buf, bufSize, "%c%d", fileLetter, rankNumber);
 }
 
-
 int encodeMoveLocation(struct location from, struct location to, struct piece* Piece) {
     int fromEncoded = encodeLocation(from, Piece->type);
     int toEncoded   = to.col * 10 + to.row;
-
     return fromEncoded * 1000 + toEncoded;
 }
 
@@ -42,7 +40,7 @@ void logMove(struct location from, struct location to, struct piece* Piece, stru
     // Human-readable: "a1 - h10"
     char fromBuf[4], toBuf[4];
     locationToNotation(from, fromBuf, sizeof(fromBuf));
-    locationToNotation(to,   toBuf,   sizeof(toBuf));
+    locationToNotation(to, toBuf, sizeof(toBuf));
     snprintf(logOfMoves->move, sizeof(logOfMoves->move), "%s - %s", fromBuf, toBuf);
 }
 
@@ -70,12 +68,9 @@ char* convertLogMove(const struct log* Log, int moveIndex) {
     locationToNotation(fromLoc, fromBuf, sizeof(fromBuf));
     locationToNotation(toLoc,   toBuf,   sizeof(toBuf));
 
-    const char pieceChars[] = { 'A', 'R', 'N', 'B', 'Q', 'T', 'K' };
-
     char* result = (char*)malloc(12 * sizeof(char));
     if (!result) return NULL;
 
     snprintf(result, 12, "%c%s-%s", pieceChars[(int)type], fromBuf, toBuf);
-
     return result; // caller must free()
 }

@@ -2,11 +2,21 @@
 #define LOG_H
 
 struct log {
-    string move; // "a1 - j10"
+    char move[16]; // "a1 - j10"
     int piece; // Black or White
-    static int moveNumber; // 1-1000 for # of moves in the game
+    int moveNumber; // 1-1000 for # of moves in the game
     int history[1000];
 };
+
+
+// Starting board layout for reference
+const enum pieceType backRow[10] = {
+    ROOK, KNIGHT, BISHOP, ANTEATER, QUEEN,
+    KING, ANTEATER, BISHOP, KNIGHT, ROOK
+};
+
+//Piece character lookup
+const char pieceChars[] = { 'A', 'R', 'N', 'B', 'Q', 'K', 'T' };
 
 //Encodes the board position fof a piece + piece type into a 3-digit int
 int encodeLocation(struct location loc, enum pieceType type);

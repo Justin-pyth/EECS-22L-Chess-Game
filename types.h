@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 enum pieceType {
-    ANT, ROOK, KNIGHT, BISHOP, QUEEN, ANTEATER, KING, 
+    ANT, ROOK, KNIGHT, BISHOP, QUEEN, KING, ANTEATER, 
 };
 
 enum pieceColor {
