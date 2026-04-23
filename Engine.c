@@ -14,7 +14,7 @@ const int weight[7] =
 
 bool stop_search = false;
 double time_start = 0;
-double time_allot = 10000; //10000
+double time_allot = 1000; //10 s
 
 //start of killer move implementation
 uint32_t K_MOVES[64][2];    //max depth, 2 killer moves stored per depth
@@ -45,7 +45,18 @@ int getScore(const struct gameState* gs)
 
             //give up to +35 bonus to increase pawn advancement
             if (p->piece == ANT)
-                value += ((p->color == WHITE) ? row : (7-row)) * 5;
+            {
+                //distance traveled by pawn from starting pos
+                int tilPromo = (p->color == WHITE) ? row : (7 - row);
+                int row_bonus[] = {0, 10, 30, 80, 200, 400, 600, 750};
+
+                if (tilPromo < 0) tilPromo = 0;
+                if (tilPromo > 7) tilPromo = 7;
+                value += row_bonus[tilPromo];
+
+            }
+
+            if (p->piece == QUEEN) value += 200;
             
             //discourage these pieces from staying near their home row
             if (p->piece == KNIGHT || p->piece == BISHOP || p->piece == ANTEATER)
@@ -317,7 +328,7 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
             depth = (rand() % 2) + 3; //3 or 4
             break;
         case 2:
-            depth = 10; //4 set to 5 or more later            
+            depth = 50; //4 set to 5 or more later            
             break;
     }
 
@@ -338,6 +349,28 @@ int MVV_LVA(const struct gameState* gs, uint32_t move)
     //if its a non capture move, return the score as the history to preSort
     if(!victim)
         return HISTORY[getFromRow(move)][getFromCol(move)][getToRow(move)][getToCol(move)];
+
+
+    if (isPromotion(move)) 
+    {
+        int promoValue;
+        int flags = getFlags(move);
+        switch (flags)
+        {
+            case MOVE_PROMO_QUEEN:    promoValue = weight[QUEEN]; break;
+            case MOVE_PROMO_ROOK:     promoValue = weight[ROOK]; break;
+            case MOVE_PROMO_BISHOP:   promoValue = weight[BISHOP]; break;
+            case MOVE_PROMO_KNIGHT:   promoValue = weight[KNIGHT]; break;
+            case MOVE_PROMO_ANTEATER: promoValue = weight[ANTEATER]; break;
+        }
+
+    return 10000 + promoValue;
+}
+    int flags = getFlags(move);
+    if (flags == MOVE_EN_PASSANT || flags == MOVE_ANTEATING) {
+        return 10100; //tune this, just make it above 10k so q-funct doesnt skip it
+    }
+
     //if capture, subtract the victim's value by attackers value
     //goal is to get the highest victim value, lowest attacker value
     //ex: pawn->queen
@@ -382,7 +415,7 @@ int Quiesce(struct gameState* gs, int alpha, int beta)
         if (get_elapsed_time(time_start) >= time_allot) 
             stop_search = true;
     }
-    if (stop_search) return 0;
+    if (stop_search) return alpha;
 
     int static_score = getScore(gs);
 
@@ -402,11 +435,8 @@ int Quiesce(struct gameState* gs, int alpha, int beta)
         uint32_t move = moves[i];
 
         //filter out non-captures (quiet moves)
-        if (!isCapture(gs, move)) continue;
+        if (!isCapture(gs, move) && !isPromotion(move)) continue;
 
-        //bad captures filtered, 
-        //threshold is increased to 10000 since each move in mvv_lvv had 10000 added to prevent history and killer moves from overpowering
-        if (MVV_LVA(gs, move) < 10000) continue;
 
         struct MoveUndo u;
         applyMove(gs, move, &u);
@@ -449,4 +479,17 @@ double get_current_time()
 double get_elapsed_time(double start) 
 {
     return get_current_time() - start;
+}
+
+bool isPromotion(uint32_t move)
+{
+    int flags = getFlags(move);
+
+    return (
+        flags == MOVE_PROMO_QUEEN ||
+        flags == MOVE_PROMO_ROOK ||
+        flags == MOVE_PROMO_BISHOP ||
+        flags == MOVE_PROMO_KNIGHT ||
+        flags == MOVE_PROMO_ANTEATER
+    );
 }

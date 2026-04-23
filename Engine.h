@@ -41,5 +41,6 @@ int Quiesce(struct gameState* gs, int alpha, int beta);
 bool isCapture(struct gameState* gs, uint32_t move);
 double get_current_time();
 double get_elapsed_time(double start);
+bool isPromotion(uint32_t move);
 
 #endif
