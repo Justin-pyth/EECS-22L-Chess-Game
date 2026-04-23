@@ -14,7 +14,7 @@ const int weight[7] =
 
 bool stop_search = false;
 double time_start = 0;
-double time_allot = 1000; //10 s
+double time_allot = 2000; //2 seconds alloted per move (can change)
 
 //start of killer move implementation
 uint32_t K_MOVES[64][2];    //max depth, 2 killer moves stored per depth
