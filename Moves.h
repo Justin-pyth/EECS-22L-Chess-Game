@@ -86,12 +86,12 @@ bool isLegalMove(struct move moveMade, const struct gameState* gs);
 
 /* Per-piece struct-move generators (used by UI / display code).
    Caller must free() the returned array.                               */
-struct move* getAntMoves     (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getBishopMoves  (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getKnightMoves  (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getRookMoves    (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getQueenMoves   (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getKingMoves    (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getAnteaterMoves(struct piece* board[8][10], int row, int col, int* moveCount);
+void getAntMoves     (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getBishopMoves  (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getKnightMoves  (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getRookMoves    (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getQueenMoves   (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getKingMoves    (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getAnteaterMoves(struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
 
 #endif /* MOVES_H */
