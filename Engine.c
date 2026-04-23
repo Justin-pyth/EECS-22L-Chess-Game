@@ -3,7 +3,7 @@
 int nodeCount = 0;
 const int weight[7] =
 {
-    [KING]     = 0,
+    [KING]     = 100000,
     [QUEEN]    = 900,
     [KNIGHT]   = 300,
     [BISHOP]   = 350,
@@ -11,8 +11,13 @@ const int weight[7] =
     [ANT]      = 100,
     [ANTEATER] = 330
 };
+
+bool stop_search = false;
+double time_start = 0;
+double time_allot = 10000; //10000
+
 //start of killer move implementation
-uint32_t K_MOVES[32][2];    //max depth, 2 killer moves stored per depth
+uint32_t K_MOVES[64][2];    //max depth, 2 killer moves stored per depth
 //history implementation
 int HISTORY[8][10][8][10];  //row col row col
 
@@ -98,8 +103,8 @@ int getScore(const struct gameState* gs)
                 }
 
                 //bonuses (arbitrary TO ADJUST LATER)
-                value += near_Ant * 5;
-                value += MIN(chainAnt, 4) * 3;
+                value += near_Ant * (weight[ANT] / 20);
+                value += MIN(chainAnt, 4) * (weight[ANT] / 30);
 
 
                 //increase value for ability to capture on current turn
@@ -128,6 +133,14 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
 {
     nodeCount++;
     //find all legal moves
+
+    if (nodeCount % 2048 == 0) 
+    { 
+        if (get_elapsed_time(time_start) >= time_allot) 
+            stop_search = true;
+    }
+    if (stop_search) return 0;
+
     int moveCount = 0;
     uint32_t moves[MAX_MOVES];
     getMoves(gs, moves, &moveCount);
@@ -143,7 +156,7 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
 
     //only use getScore after ensuring no checkmate condition
     //base condition
-    if (depth <= 0) return getScore(gs);
+    if (depth <= 0) return Quiesce(gs, alpha, beta);
 
     //sort according to MVV-LVA (after base conditions)
     preSort(gs, moves, moveCount);
@@ -171,6 +184,9 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
 
         undoMove(gs, &u);
 
+        //premature exit
+        if (stop_search) return 0;
+
         if(score > bestScore)
             bestScore = score;
 
@@ -181,7 +197,7 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
             //store moves that cause beta-cut off AKA very one-sided move
             //so it stores the worst move trees for the previous player, which are the best moves for the current
             //since sides switch
-            if (gs->board[getToRow(moves[i])][getToCol(moves[i])] == NULL) 
+            if (!isCapture(gs, moves[i])) 
             {
                 K_MOVES[depth][1] = K_MOVES[depth][0];
                 K_MOVES[depth][0] = moves[i];
@@ -198,7 +214,6 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
 
 uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
 {
-    nodeCount++;
     int maxScore = -INF;
     //get legal moves
     int moveCount = 0;
@@ -264,6 +279,9 @@ uint32_t findBestMove(struct gameState* gs, int depth)
     //reset killer moves and history
     memset(K_MOVES, 0, sizeof(K_MOVES));
     memset(HISTORY, 0, sizeof(HISTORY));
+    stop_search = false;
+    time_start = get_current_time();
+
     uint32_t bestMove = 0;
     uint32_t previousBestMove = 0;
 
@@ -273,11 +291,13 @@ uint32_t findBestMove(struct gameState* gs, int depth)
         //return the best move at the depth
         uint32_t move = depthSearch(gs, i, previousBestMove);
         //if move is valid, then set it as best
-        if(move != 0)
+        if(!stop_search)
         {
-            bestMove = move;
             previousBestMove = move;
+            bestMove = move;
         }
+        else break;
+
     }
     return bestMove;
 }
@@ -297,7 +317,7 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
             depth = (rand() % 2) + 3; //3 or 4
             break;
         case 2:
-            depth = 5; //4 set to 5 or more later            
+            depth = 10; //4 set to 5 or more later            
             break;
     }
 
@@ -321,7 +341,7 @@ int MVV_LVA(const struct gameState* gs, uint32_t move)
     //if capture, subtract the victim's value by attackers value
     //goal is to get the highest victim value, lowest attacker value
     //ex: pawn->queen
-    return weight[victim->piece] - weight[attacker->piece];
+    return 10000 + weight[victim->piece] - weight[attacker->piece];
 
 }
 
@@ -352,4 +372,81 @@ void preSort(const struct gameState* gs, uint32_t* moves, int moveCount)
         moves[j+1] = move;
         scores[j+1] = score;
     }
+}
+
+int Quiesce(struct gameState* gs, int alpha, int beta)
+{
+    nodeCount++;
+    if (nodeCount % 2048 == 0) 
+    { 
+        if (get_elapsed_time(time_start) >= time_allot) 
+            stop_search = true;
+    }
+    if (stop_search) return 0;
+
+    int static_score = getScore(gs);
+
+    int best_score = static_score;
+    if(best_score >= beta)
+        return best_score;
+    if(best_score > alpha)
+        alpha = best_score;
+    
+    uint32_t moves[MAX_MOVES];
+    int moveCount = 0;
+    getMoves(gs, moves, &moveCount);
+    preSort(gs, moves, moveCount); //give better moves first for earlier beta cutoffs
+
+    for(int i = 0; i< moveCount ; i++)
+    {
+        uint32_t move = moves[i];
+
+        //filter out non-captures (quiet moves)
+        if (!isCapture(gs, move)) continue;
+
+        //bad captures filtered, 
+        //threshold is increased to 10000 since each move in mvv_lvv had 10000 added to prevent history and killer moves from overpowering
+        if (MVV_LVA(gs, move) < 10000) continue;
+
+        struct MoveUndo u;
+        applyMove(gs, move, &u);
+
+        int score = -Quiesce(gs, -beta, -alpha);
+
+        undoMove(gs, &u);
+
+        if(score >= beta)
+            return score;
+        if(score > best_score)
+            best_score = score;
+        if(score > alpha)
+            alpha = score;
+    }
+
+    return best_score;
+}
+
+bool isCapture(struct gameState* gs, uint32_t move)
+{
+    int toRow = getToRow(move); int toCol = getToCol(move); int flags = getFlags(move);
+
+    if (toRow < 0 || toRow >= 8 || toCol < 0 || toCol >= 10) return false;
+
+    if (flags == MOVE_ANTEATING || flags == MOVE_EN_PASSANT) return true;
+
+    //check if theres a piece and if that piece is an enemy piece (return it)
+    struct piece* victim = gs->board[toRow][toCol];
+
+    //return true if there is a opponent piece that can be captured
+    return (victim && victim->color != gs->currentPlayer);
+}
+
+double get_current_time() 
+{
+    return (double)clock() / CLOCKS_PER_SEC * 1000.0;
+}
+
+double get_elapsed_time(double start) 
+{
+    return get_current_time() - start;
 }
