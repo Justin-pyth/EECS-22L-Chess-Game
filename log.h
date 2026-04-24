@@ -1,6 +1,14 @@
 #ifndef LOG_H
 #define LOG_H
 
+#include "log.h"
+#include "Moves.h"
+#include "Engine.h"
+#include "types.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 struct log {
     char move[16]; // "a1 - j10"
     int piece; // Black or White
@@ -8,11 +16,15 @@ struct log {
     int history[1000];
 };
 
-
 // Starting board layout for reference
 const enum pieceType backRow[10] = {
     ROOK, KNIGHT, BISHOP, ANTEATER, QUEEN,
     KING, ANTEATER, BISHOP, KNIGHT, ROOK
+};
+
+//Piece names
+const char* pieceNames[] = {
+    "Ant", "Rook", "Knight", "Bishop", "Queen", "King", "Anteater"
 };
 
 //Piece character lookup
@@ -32,7 +44,7 @@ int encodeMoveLocation(struct location from, struct location to, struct piece* P
 
 //Logs move made by chess user into the log
 //Odd moves = from, even moves = to
-void logMove (struct move moves, struct piece* Piece, const struct log* logOfMoves);
+void logMove(struct location from, struct location to, struct piece* Piece, struct log* logOfMoves);
 
 // Converts encoded move from history and returns it as a readable string
 char* convertLogMove(const struct log* Log, int moveIndex);
