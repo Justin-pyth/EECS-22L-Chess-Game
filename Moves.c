@@ -268,7 +268,7 @@ void getAnteaterMoves(struct piece* board[8][10], int row, int col, uint32_t* mo
             if (r < 0 || r >= 8 || c < 0 || c >= 10) continue;
             if (!board[r][c] || board[r][c]->piece != ANT ||
                 board[r][c]->color != opp) continue;
-                moves[(*moveCount)++] = createMove(row, col, r, c, MOVE_NORMAL);
+                moves[(*moveCount)++] = createMove(row, col, r, c, MOVE_ANTEATING);
             int edirs[4][2] = {{0,1},{0,-1},{1,0},{-1,0}};
             
             for (int d = 0; d < 4; d++) 
@@ -278,7 +278,7 @@ void getAnteaterMoves(struct piece* board[8][10], int row, int col, uint32_t* mo
                        board[nr][nc] && board[nr][nc]->piece == ANT &&
                        board[nr][nc]->color == opp) 
                 {
-                    moves[(*moveCount)++] = createMove(row, col, nr, nc, MOVE_NORMAL);
+                    moves[(*moveCount)++] = createMove(row, col, nr, nc, MOVE_ANTEATING);
                     nr += edirs[d][0]; nc += edirs[d][1];
                 }
             }
