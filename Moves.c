@@ -17,24 +17,7 @@ extern void setPromotionCount(int count);
 
 bool inCheck(const struct gameState* gs)
 {
-    return isKingInCheck((struct piece*(*)[10])gs->board, gs->currentPlayer);
-}
-
-/* ── Shared appendMove helper ───────────────────────────────────────── */
-
-static struct move* appendMove(struct move* arr, int* cnt, int* cap,
-                                int fr, int fc, int tr, int tc)
-{
-    if (*cnt >= *cap) {
-        *cap *= 2;
-        arr = realloc(arr, (size_t)(*cap) * sizeof(struct move));
-    }
-    arr[*cnt].pos1.rank = (char)(fr + 1);
-    arr[*cnt].pos1.file = (char)('a' + fc);
-    arr[*cnt].pos2.rank = (char)(tr + 1);
-    arr[*cnt].pos2.file = (char)('a' + tc);
-    (*cnt)++;
-    return arr;
+    return isColorInCheck(gs, gs->currentPlayer);
 }
 
 /* ── Decode a struct move back to row/col integers ──────────────────── */
@@ -46,19 +29,6 @@ static void decodeMoveCoords(struct move m,
     *fc = m.pos1.file - 'a';
     *tr = m.pos2.rank - 1;
     *tc = m.pos2.file - 'a';
-}
-
-/* ── Convert a legal struct move to Move and append to Move[] ───────── */
-
-static void commitIfLegal(struct piece* board[8][10],
-                           struct move m, int flags,
-                           enum pieceColor color, bool isEnPassant,
-                           Move* mv, int* n)
-{
-    int fr, fc, tr, tc;
-    decodeMoveCoords(m, &fr, &fc, &tr, &tc);
-    if (!wouldLeaveKingInCheck(board, fr, fc, tr, tc, color, isEnPassant))
-        mv[(*n)++] = createMove(fr, fc, tr, tc, flags);
 }
 
 /*
@@ -268,7 +238,7 @@ void getAnteaterMoves(struct piece* board[8][10], int row, int col, uint32_t* mo
             if (r < 0 || r >= 8 || c < 0 || c >= 10) continue;
             if (!board[r][c] || board[r][c]->piece != ANT ||
                 board[r][c]->color != opp) continue;
-                moves[(*moveCount)++] = createMove(row, col, r, c, MOVE_NORMAL);
+                moves[(*moveCount)++] = createMove(row, col, r, c, MOVE_ANTEATING);
             int edirs[4][2] = {{0,1},{0,-1},{1,0},{-1,0}};
             
             for (int d = 0; d < 4; d++) 
@@ -278,7 +248,7 @@ void getAnteaterMoves(struct piece* board[8][10], int row, int col, uint32_t* mo
                        board[nr][nc] && board[nr][nc]->piece == ANT &&
                        board[nr][nc]->color == opp) 
                 {
-                    moves[(*moveCount)++] = createMove(row, col, nr, nc, MOVE_NORMAL);
+                    moves[(*moveCount)++] = createMove(row, col, nr, nc, MOVE_ANTEATING);
                     nr += edirs[d][0]; nc += edirs[d][1];
                 }
             }
@@ -286,13 +256,12 @@ void getAnteaterMoves(struct piece* board[8][10], int row, int col, uint32_t* mo
     }
 }
 
-/*  getMoves — calls get*Moves, converts results, appends special moves */
+/*  getPseudoLegalMoves — calls get*Moves, converts results, appends special moves */
 
-void getMoves(struct gameState* gs, Move* moves, int* moveCount)
+void getPseudoLegalMoves(struct gameState* gs, Move* moves, int* moveCount)
 {
     *moveCount = 0;
     enum pieceColor color = gs->currentPlayer;
-    enum pieceColor opp   = (color == WHITE) ? BLACK : WHITE;
     int dir      = (color == WHITE) ?  1 : -1;
     int promoRow = (color == WHITE) ?  7 :  0;
     static const int promoFlags[5] = {
@@ -328,23 +297,19 @@ void getMoves(struct gameState* gs, Move* moves, int* moveCount)
 
                 // pawn promotion
                 if (p->piece == ANT && tr == promoRow) {
-                    for (int pi = 0; pi < 5; pi++) {
-                        if (!wouldLeaveKingInCheck(gs->board, fr, fc, tr, tc, color, false))
-                            moves[(*moveCount)++] = createMove(fr, fc, tr, tc, promoFlags[pi]);
-                    }
+                    for (int pi = 0; pi < 5; pi++)
+                        moves[(*moveCount)++] = createMove(fr, fc, tr, tc, promoFlags[pi]);
                     continue;
                 }
 
                 // anteater eating flag
                 if (p->piece == ANTEATER && flags == MOVE_ANTEATING) {
-                    if (!wouldLeaveKingInCheck(gs->board, fr, fc, tr, tc, color, false))
-                        moves[(*moveCount)++] = createMove(fr, fc, tr, tc, MOVE_ANTEATING);
+                    moves[(*moveCount)++] = createMove(fr, fc, tr, tc, MOVE_ANTEATING);
                     continue;
                 }
 
-                // normal move legality check
-                if (!wouldLeaveKingInCheck(gs->board, fr, fc, tr, tc, color, false))
-                    moves[(*moveCount)++] = createMove(fr, fc, tr, tc, MOVE_NORMAL);
+                // normal move
+                moves[(*moveCount)++] = createMove(fr, fc, tr, tc, MOVE_NORMAL);
             }
 
             // en passant
@@ -352,11 +317,9 @@ void getMoves(struct gameState* gs, Move* moves, int* moveCount)
                 int dc = gs->enPassantCol - c;
                 if (dc == 1 || dc == -1) {
                     int epToRow = r + dir;
-                    if (!wouldLeaveKingInCheck(gs->board, r, c, epToRow,
-                                               gs->enPassantCol, color, true))
-                        moves[(*moveCount)++] = createMove(r, c, epToRow,
-                                                           gs->enPassantCol,
-                                                           MOVE_EN_PASSANT);
+                    moves[(*moveCount)++] = createMove(r, c, epToRow,
+                                                       gs->enPassantCol,
+                                                       MOVE_EN_PASSANT);
                 }
             }
 
@@ -368,6 +331,33 @@ void getMoves(struct gameState* gs, Move* moves, int* moveCount)
                     moves[(*moveCount)++] = createMove(r, c, r, 3, MOVE_CASTLE_QS);
             }
         }
+    }
+}
+
+//getMoves still outputs only legal moves
+void getMoves(struct gameState* gs, Move* moves, int* moveCount)
+{
+    //create a buffer to store psuedolegal moves
+    Move pseudoMoves[MAX_MOVES];
+    int cnt = 0;
+    enum pieceColor color = gs->currentPlayer;
+
+    //get psuedolegal moves and the count of psuedolegal moves
+    getPseudoLegalMoves(gs, pseudoMoves, &cnt);
+
+    *moveCount = 0;
+    //iterate through the list of psuedo legal moves
+    for (int i = 0; i < cnt; i++) 
+    {
+        //fetch the following:
+        int fr = getFromRow(pseudoMoves[i]), fc = getFromCol(pseudoMoves[i]);
+        int tr = getToRow  (pseudoMoves[i]), tc = getToCol  (pseudoMoves[i]);
+        int flags = getFlags(pseudoMoves[i]);
+        bool isEnPassant = (flags == MOVE_EN_PASSANT);
+
+        //if that move doesn't leave king in check, LEGAL
+        if (!wouldLeaveKingInCheck(gs->board, fr, fc, tr, tc, color, isEnPassant))
+            moves[(*moveCount)++] = pseudoMoves[i];
     }
 }
 
