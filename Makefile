@@ -21,8 +21,9 @@
 
 CC      = gcc
 CFLAGS  = -Wall -Wextra -O2 -std=c11
-GTK     = $(shell pkg-config --cflags --libs gtk+-3.0)
 LIBS    = -lm
+GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
+GTK_LIBS   = $(shell pkg-config --libs gtk+-3.0)
 
 HEADERS = types.h Moves.h Engine.h
 
@@ -34,11 +35,10 @@ all: chess_gui
 # Uses core.c (Chess.c with main() behind #ifndef GUI_BUILD).
 # gui.c provides the GTK3 entry point.
 chess_gui: gui.c core.c Moves.c Engine.c $(HEADERS)
-	$(CC) $(CFLAGS) -DGUI_BUILD $(GTK) \
-	    -o chess_gui \
+	$(CC) $(CFLAGS) -DGUI_BUILD $(GTK_CFLAGS) \
 	    gui.c core.c Moves.c Engine.c \
-	    $(LIBS)
-	@echo "► chess_gui built successfully."
+	    -o chess_gui \
+	    $(GTK_LIBS) $(LIBS)
 
 # ── Terminal build ────────────────────────────────────────────────────────────
 # Uses the original Chess.c unchanged.
