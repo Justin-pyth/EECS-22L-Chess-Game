@@ -49,6 +49,7 @@ struct MoveUndo {
     bool blackRookMovedQS, blackRookMovedKS;
     int  enPassantCol, enPassantRow;
     int  halfMove_count;
+    int  promotionCount;
 };
 
 /* ── Bit-packed Move encode / decode ────────────────────────────────── */

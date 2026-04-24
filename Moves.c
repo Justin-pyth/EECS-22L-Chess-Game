@@ -10,6 +10,8 @@ extern bool wouldLeaveKingInCheck(struct piece* board[8][10],
 extern bool isCastlingValid(struct piece* board[8][10], enum pieceColor color,
                              bool kingSide, struct gameState* state);
 extern struct piece* allocatePromotion(enum pieceType type, enum pieceColor color);
+extern int getPromotionCount(void);
+extern void setPromotionCount(int count);
 
 /* ── inCheck ────────────────────────────────────────────────────────── */
 
@@ -382,6 +384,7 @@ static void saveUndo(const struct gameState* gs, struct MoveUndo* u)
     u->enPassantCol     = gs->enPassantCol;
     u->enPassantRow     = gs->enPassantRow;
     u->halfMove_count   = gs->halfMove_count;
+    u->promotionCount   = getPromotionCount();
 }
 
 void undoMove(struct gameState* gs, const struct MoveUndo* u)
@@ -397,6 +400,7 @@ void undoMove(struct gameState* gs, const struct MoveUndo* u)
     gs->enPassantCol     = u->enPassantCol;
     gs->enPassantRow     = u->enPassantRow;
     gs->halfMove_count   = u->halfMove_count;
+    setPromotionCount(u->promotionCount);
 }
 
 void applyMove(struct gameState* gs, Move m, struct MoveUndo* u)

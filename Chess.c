@@ -26,6 +26,14 @@
     static struct piece promotionPool[40];
     static int promotionCount = 0;
 
+    int getPromotionCount(void) {
+        return promotionCount;
+    }
+
+    void setPromotionCount(int count) {
+        promotionCount = count;
+    }
+
     // Board / state initialisation                                         
     void initializeBoard(struct piece* board[8][10]) {
         static struct piece whiteKing     = {.color = WHITE, .piece = KING};
