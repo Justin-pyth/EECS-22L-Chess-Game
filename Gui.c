@@ -317,7 +317,7 @@ static void drawSquareBG(cairo_t* cr, int drow, int col,
         double cx = x + SQUARE_SIZE / 2.0;
         double cy = y + SQUARE_SIZE / 2.0;
         cairo_set_source_rgba(cr, COL_LEGAL, 0.70);
-        cairo_arc(cr, cx, cy, SQUARE_SIZE * 0.15, 0, 2 * M_PI);
+        cairo_arc(cr, cx, cy, SQUARE_SIZE * 0.15, 0, 2 * G_PI);
         cairo_fill(cr);
     }
 }

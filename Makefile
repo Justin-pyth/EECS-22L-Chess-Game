@@ -34,9 +34,9 @@ all: chess_gui
 # ── GUI build ─────────────────────────────────────────────────────────────────
 # Uses core.c (Chess.c with main() behind #ifndef GUI_BUILD).
 # gui.c provides the GTK3 entry point.
-chess_gui: gui.c core.c Moves.c Engine.c $(HEADERS)
+chess_gui: Gui.c Core.c Moves.c Engine.c $(HEADERS)
 	$(CC) $(CFLAGS) -DGUI_BUILD $(GTK_CFLAGS) \
-	    gui.c core.c Moves.c Engine.c \
+	    Gui.c Core.c Moves.c Engine.c \
 	    -o chess_gui \
 	    $(GTK_LIBS) $(LIBS)
 

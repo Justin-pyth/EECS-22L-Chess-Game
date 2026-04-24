@@ -44,6 +44,14 @@ void printStats(double t, int tm, int tn) {
 static struct piece promotionPool[40];
 static int promotionCount = 0;
 
+int getPromotionCount(void) {
+    return promotionCount;
+}
+
+void setPromotionCount(int count) {
+    promotionCount = count;
+}
+
 void initializeBoard(struct piece* board[8][10]) {
     static struct piece whiteKing     = {.color = WHITE, .piece = KING};
     static struct piece whiteQueen    = {.color = WHITE, .piece = QUEEN};
@@ -262,6 +270,10 @@ bool isKingInCheck(struct piece* board[8][10], enum pieceColor color) {
     if (!findKing(board, color, &kingRow, &kingCol)) return false;
     enum pieceColor opp = (color == WHITE) ? BLACK : WHITE;
     return isSquareAttackedBy(board, kingRow, kingCol, opp);
+}
+
+bool isColorInCheck(const struct gameState* gs, enum pieceColor color) {
+    return isKingInCheck((struct piece*(*)[10])gs->board, color);
 }
 
 bool isCheckmate(struct gameState* gs) {
