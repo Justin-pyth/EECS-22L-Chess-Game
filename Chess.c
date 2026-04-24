@@ -328,7 +328,11 @@
 
     
 
-    //Game State
+    //check the specific color, to prevent errors in between applying and undoing a move
+    bool isColorInCheck(const struct gameState* gs, enum pieceColor color) {
+        return isKingInCheck((struct piece*(*)[10])gs->board, color);
+    }
+
     bool isKingInCheck(struct piece* board[8][10], enum pieceColor color) {
         int kingRow, kingCol;
         if (!findKing(board, color, &kingRow, &kingCol)) return false;
