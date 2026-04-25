@@ -479,6 +479,8 @@ void applyMove(struct gameState* gs, Move m, struct MoveUndo* u)
     }
 
     gs->halfMove_count = (isPawnMove || isCapture) ? 0 : gs->halfMove_count + 1;
+    if (color == BLACK)
+        gs->fullMove_count++;
     gs->currentPlayer  = (color == WHITE) ? BLACK : WHITE;
 }
 

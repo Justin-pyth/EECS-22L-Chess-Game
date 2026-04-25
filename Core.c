@@ -93,6 +93,10 @@ void initializeBoard(struct piece* board[8][10]) {
 
 void initGameState(struct gameState* state) {
     setPromotionCount(0);
+    moveNumber            = 1;
+    timedMoves            = 0;
+    totalTime             = 0.0;
+    nodeCount             = 0;
     state->whiteKingMoved   = false;
     state->blackKingMoved   = false;
     state->whiteRookMovedQS = false;
@@ -104,6 +108,7 @@ void initGameState(struct gameState* state) {
     state->currentPlayer    = WHITE;
     state->halfMove_count   = 0;
     state->fullMove_count   = 1;
+    memset(&state->move_log, 0, sizeof(state->move_log));
 }
 
 bool findKing(struct piece* board[8][10],
