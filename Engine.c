@@ -4,6 +4,10 @@
 static bool isSearchDraw(const struct gameState* gs, uint64_t posHash, int ply);
 static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply);
 static int Quiesce(struct gameState* gs, int alpha, int beta, int ply);
+static inline bool isCapture(const struct gameState* gs, uint32_t move);
+static inline double get_current_time(void);
+static inline double get_elapsed_time(double start);
+static inline bool isPromotion(uint32_t move);
 //FORWARD DECLARATIONS==================================================================================END
 
 //TRACKING VARIABLES AND DEBUG==========================================================================START
@@ -489,7 +493,7 @@ static int Quiesce(struct gameState* gs, int alpha, int beta, int ply)
     return best_score;
 }
 
-bool isCapture(struct gameState* gs, uint32_t move)
+static inline bool isCapture(const struct gameState* gs, uint32_t move)
 {
     int toRow = getToRow(move); int toCol = getToCol(move); int flags = getFlags(move);
 
@@ -504,17 +508,17 @@ bool isCapture(struct gameState* gs, uint32_t move)
     return (victim && victim->color != gs->currentPlayer);
 }
 
-double get_current_time() 
+static inline double get_current_time(void) 
 {
     return (double)clock() / CLOCKS_PER_SEC * 1000.0;
 }
 
-double get_elapsed_time(double start) 
+static inline double get_elapsed_time(double start) 
 {
     return get_current_time() - start;
 }
 
-bool isPromotion(uint32_t move)
+static inline bool isPromotion(uint32_t move)
 {
     int flags = getFlags(move);
 

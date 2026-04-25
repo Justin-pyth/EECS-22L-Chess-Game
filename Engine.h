@@ -34,9 +34,4 @@ int MVV_LVA(const struct gameState* gs, uint32_t move, int depth);
 //insertion sorts by weight (from MVV_LVA)
 void preSort(const struct gameState* gs, uint32_t* moves, int moveCount, int depth);
 
-bool isCapture(struct gameState* gs, uint32_t move);
-double get_current_time();
-double get_elapsed_time(double start);
-bool isPromotion(uint32_t move);
-
 #endif
