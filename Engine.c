@@ -329,7 +329,7 @@ int MVV_LVA(const struct gameState* gs, uint32_t move, int depth)
 
         //encourage castling early (TUNE THIS)
         if (flags == MOVE_CASTLE_KS || flags == MOVE_CASTLE_QS)
-            score += 9800;
+            score += 800;
 
         //to encourage advancement/less repetitive moves
         if (attacker)
@@ -339,7 +339,7 @@ int MVV_LVA(const struct gameState* gs, uint32_t move, int depth)
             {
                 int homeRow = (attacker->color == WHITE) ? 0 : 7;
                 if (fromRow == homeRow && toRow != homeRow)
-                    score += 80;
+                    score += 35;
             }
 
             //encourage developement (TUNE)
@@ -357,7 +357,7 @@ int MVV_LVA(const struct gameState* gs, uint32_t move, int depth)
 
             //penalty for not castling(tune) if you ahve chance to castle
             if (attacker->piece == KING && flags != MOVE_CASTLE_KS && flags != MOVE_CASTLE_QS)
-                score -= 120;
+                score -= 50;
         }
 
         //seperated the bonuses for center

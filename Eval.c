@@ -46,29 +46,13 @@ static int kingSafetyScore(const struct gameState* gs, enum pieceColor color, in
 
     if (!endgame)
     {
-        //promote castling
+        //promote castling / sheltered king positions
         if (castled)
-            score += 95;
+            score += 70;
         else if (row == homeRow && col == homeKingCol)
-            score -= canStillCastle ? 20 : 75;
+            score -= canStillCastle ? 15 : 55;
         else
-            score -= 110;
-
-        if (!castled)
-        {
-            if (kingMoved)
-                score -= 25;
-
-            if (col >= 3 && col <= 6)
-                score -= 15;
-
-            if (row != homeRow)
-                score -= 15;
-
-            //especially promote when queen alive
-            if (oppQueen_alive)
-                score -= 20;
-        }
+            score -= oppQueen_alive ? 70 : 50;
 
         int pawnShieldRow = row + ((color == WHITE) ? 1 : -1);
         if (pawnShieldRow >= 0 && pawnShieldRow < 8)
@@ -84,20 +68,28 @@ static int kingSafetyScore(const struct gameState* gs, enum pieceColor color, in
                 struct piece* isPawn = gs->board[pawnShieldRow][pawnShieldCol];
                 //if there exists friendly pawns, add a bonus
                 if (isPawn && isPawn->color == color && isPawn->piece == ANT)
-                    score += 14;
+                    score += 10;
                 else
                     //if there are no friendly pawns, or near other pieces, lower the score
-                    score -= 12;
+                    score -= 8;
             }
         }
+
+        //a king in the center is riskier before the endgame
+        if (!castled && col >= 3 && col <= 6)
+            score -= oppQueen_alive ? 12 : 8;
+
+        //slight penalty if the king left home early without castling
+        if (!castled && kingMoved && row != homeRow)
+            score -= 10;
     }
     else
     {
         //if in endgame, try to make king centralize
         if (col >= 3 && col <= 6 && row >= 2 && row <= 5)
-            score += 25;
+            score += 20;
         else if (col >= 2 && col <= 7 && row >= 1 && row <= 6)
-            score += 10;
+            score += 8;
     }
 
     return score;
@@ -196,14 +188,14 @@ int getScore(const struct gameState* gs)
             if (p->piece == ANT)
             {
                 //distance traveled by pawn from starting pos
-                int tilPromo = (p->color == WHITE) ? row : (7 - row);
-                int row_bonus[] = {1400, 20, 50, 100, 200, 400, 700, 1000};
+                int progress = (p->color == WHITE) ? (row - 1) : (6 - row);
+                int row_bonus[] = {0, 10, 20, 40, 70, 110, 170, 250};
 
-                if (tilPromo < 0)
-                    tilPromo = 0;
-                if (tilPromo > 7)
-                    tilPromo = 7;
-                value += row_bonus[tilPromo];
+                if (progress < 0)
+                    progress = 0;
+                if (progress > 7)
+                    progress = 7;
+                value += row_bonus[progress];
             }
 
             //discourage these pieces from staying near their home row
