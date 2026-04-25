@@ -75,6 +75,7 @@
     }
 
     void initGameState(struct gameState* state) {
+        setPromotionCount(0);
         state->whiteKingMoved   = false;
         state->blackKingMoved   = false;
         state->whiteRookMovedQS = false;
