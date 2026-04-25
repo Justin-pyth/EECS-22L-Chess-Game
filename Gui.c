@@ -20,6 +20,7 @@
 
 #include "types.h"
 #include "Moves.h"
+#include "Ant.h"
 /* Engine.h defines MAX/MIN; undef glib's first to silence redefinition warnings */
 #ifdef MAX
 #undef MAX
@@ -668,7 +669,7 @@ static gboolean onBoardClick(GtkWidget* widget, GdkEventButton* event, gpointer 
                     }
                 }
             } else {
-                executeMove(candidates[0]);
+                executeMove(chooseBestAnteaterMove(&app.gs, candidates, nc));
                 scheduleAI();
                 return TRUE;
             }

@@ -13,5 +13,7 @@ bool buildAnteaterPath(struct piece* board[8][10],
                        struct location* path,
                        int* pathCount);
 
+Move chooseBestAnteaterMove(const struct gameState* gs, Move* candidates, int count);
+
 
 #endif

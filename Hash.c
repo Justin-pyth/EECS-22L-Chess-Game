@@ -146,8 +146,10 @@ void storePositionHash(const struct gameState* gs)
 
 void popPositionHash(void)
 {
+    //if there are stored hashes
     if (currentPly > 0)
     {
+        //remove and empty
         currentPly--;
         HASHES[currentPly] = 0;
     }
