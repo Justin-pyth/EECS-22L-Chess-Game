@@ -44,6 +44,7 @@ struct location {
 struct MoveUndo {
     struct piece*   board[8][10];
     enum pieceColor currentPlayer;
+    int  whiteAntCount, blackAntCount;
     bool whiteKingMoved, blackKingMoved;
     bool whiteRookMovedQS, whiteRookMovedKS;
     bool blackRookMovedQS, blackRookMovedKS;

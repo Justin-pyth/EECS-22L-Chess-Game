@@ -35,6 +35,8 @@ struct log {
 struct gameState {
     struct piece* board[8][10];
     enum pieceColor currentPlayer;
+    int whiteAntCount;
+    int blackAntCount;
 
     bool whiteKingMoved;
     bool blackKingMoved;

@@ -26,12 +26,14 @@ int HISTORY[8][10][8][10];  //row col row col
 
 //TRACKING VARIABLES AND DEBUG==========================================================================END
 
+#define ASPIRATION_WINDOW 50
+
 static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply)
 {
     nodeCount++;
     int originalAlpha = alpha; //store for TT flag
 
-    //only sample every 2^11 nodes, to reduce get elasped time checks (sort of expensive)
+    //sample every 2048 nodes
     if (nodeCount % 2048 == 0) 
     { 
         if (get_elapsed_time(time_start) >= time_allot) 
@@ -137,7 +139,7 @@ static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply
     return bestScore;
 }
 
-uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
+uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove, int alpha, int beta, int* outputScore)
 {
     int maxScore = -INF;
 
@@ -176,7 +178,7 @@ uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
         //sort according to MVV-LVA + History
         preSort(gs, &moves[1], moveCount - 1, depth);
     }
-    //start of depth search
+    //else order the moves
     else if (moveCount > 0)
     {
         preSort(gs, moves, moveCount, depth);
@@ -186,8 +188,6 @@ uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
     uint32_t bestMove = 0;
     bool legalMoveFound = false;
     
-    int alpha = -INF;
-    int beta = INF;
     enum pieceColor movingColor = gs->currentPlayer;
     for(int i = 0 ; i < moveCount; i++)
     {
@@ -203,22 +203,34 @@ uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
 
         legalMoveFound = true;
 
+
+        //apply negamax to get score of move
         int score = -negaMax(gs, depth - 1, -beta, -alpha, 1);
 
         undoMove(gs, &u);
 
         if (stop_search) return bestMove;
 
+        //if this is not the first run, and the score is max
         if(bestMove == 0 || score > maxScore)
         {
+            //set new max and assign as best move
             maxScore = score;
             bestMove = moves[i];
         }
+        //reassign the lower bound
         alpha = MAX(alpha, maxScore);
-        if(beta <= alpha) break;
+        if(beta <= alpha) break; //lower bound > upper bound? exit
     }
 
-    if (!legalMoveFound) return 0;
+    //if not legal moves were found, return 0 for draw/stalemate
+    if (!legalMoveFound)
+    {
+        *outputScore = inCheck(gs) ? -INF : 0;
+        return 0;
+    }
+
+    *outputScore = maxScore;
 
     return bestMove;
 }
@@ -244,20 +256,39 @@ uint32_t findBestMove(struct gameState* gs, int depth)
 
     uint32_t bestMove = legalMoves[0];
     uint32_t previousBestMove = bestMove;
+    int previousScore = 0;
 
     //iterate at each depth
     for(int i = 1 ; i <= depth; i++)
     {
-        //return the best move at the depth
-        uint32_t move = depthSearch(gs, i, previousBestMove);
-        //if move is valid, then set it as best
-        if(!stop_search)
-        {
-            previousBestMove = move;
-            bestMove = move;
-        }
-        else break;
+        int alpha = -INF;
+        int beta = INF;
+        int score = 0;
 
+        if (i > 1)
+        {
+            alpha = previousScore - ASPIRATION_WINDOW;
+            beta = previousScore + ASPIRATION_WINDOW;
+        }
+
+        //return the best move at the depth
+        uint32_t move = depthSearch(gs, i, previousBestMove, alpha, beta, &score);
+
+        if (stop_search)
+            break;
+
+        //if the score fell outside the window, research with the full bounds
+        if (i > 1 && (score <= alpha || score >= beta))
+        {
+            move = depthSearch(gs, i, previousBestMove, -INF, INF, &score);
+            if (stop_search)
+                break;
+        }
+
+        //if move is valid, then set it as best
+        previousBestMove = move;
+        bestMove = move;
+        previousScore = score;
     }
     return bestMove;
 }

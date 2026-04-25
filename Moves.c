@@ -20,6 +20,15 @@ bool inCheck(const struct gameState* gs)
     return isColorInCheck(gs, gs->currentPlayer);
 }
 
+static inline void decrementAntCount(struct gameState* gs, struct piece* p)
+{
+    if (!p || p->piece != ANT)
+        return;
+
+    if (p->color == WHITE) gs->whiteAntCount--;
+    else                   gs->blackAntCount--;
+}
+
 /*
     getAntMoves
     Returns all possible moves that a given Ant (pawn) piece can make
@@ -354,6 +363,8 @@ static void saveUndo(const struct gameState* gs, struct MoveUndo* u)
 {
     memcpy(u->board, gs->board, sizeof(gs->board));
     u->currentPlayer    = gs->currentPlayer;
+    u->whiteAntCount    = gs->whiteAntCount;
+    u->blackAntCount    = gs->blackAntCount;
     u->whiteKingMoved   = gs->whiteKingMoved;
     u->blackKingMoved   = gs->blackKingMoved;
     u->whiteRookMovedQS = gs->whiteRookMovedQS;
@@ -370,6 +381,8 @@ void undoMove(struct gameState* gs, const struct MoveUndo* u)
 {
     memcpy(gs->board, u->board, sizeof(gs->board));
     gs->currentPlayer    = u->currentPlayer;
+    gs->whiteAntCount    = u->whiteAntCount;
+    gs->blackAntCount    = u->blackAntCount;
     gs->whiteKingMoved   = u->whiteKingMoved;
     gs->blackKingMoved   = u->blackKingMoved;
     gs->whiteRookMovedQS = u->whiteRookMovedQS;
@@ -401,10 +414,12 @@ void applyMove(struct gameState* gs, Move m, struct MoveUndo* u)
 
     switch (flags) {
         case MOVE_NORMAL:
+            decrementAntCount(gs, captured);
             gs->board[tr][tc] = moving;
             gs->board[fr][fc] = NULL;
             break;
         case MOVE_EN_PASSANT:
+            decrementAntCount(gs, gs->board[fr][tc]);
             gs->board[tr][tc] = moving;
             gs->board[fr][fc] = NULL;
             gs->board[fr][tc] = NULL;
@@ -438,6 +453,9 @@ void applyMove(struct gameState* gs, Move m, struct MoveUndo* u)
                 [MOVE_PROMO_KNIGHT]   = KNIGHT,
                 [MOVE_PROMO_ANTEATER] = ANTEATER
             };
+            decrementAntCount(gs, captured);
+            if (color == WHITE) gs->whiteAntCount--;
+            else                gs->blackAntCount--;
             gs->board[tr][tc] = allocatePromotion(tbl[flags], color);
             gs->board[fr][fc] = NULL;
             isPawnMove = true;
@@ -451,8 +469,10 @@ void applyMove(struct gameState* gs, Move m, struct MoveUndo* u)
             for (int row = fr + dr, col = fc + dc;
                 (row != tr || col != tc) && row >= 0 && row < 8 && col >= 0 && col < 10;
                 row += dr, col += dc) {
-                if (gs->board[row][col] && gs->board[row][col]->piece == ANT)
+                if (gs->board[row][col] && gs->board[row][col]->piece == ANT) {
+                    decrementAntCount(gs, gs->board[row][col]);
                     gs->board[row][col] = NULL;
+                }
             }
             isCapture = true;
             break;

@@ -210,6 +210,9 @@ int getScore(const struct gameState* gs)
                 int near_Ant = 0;
                 int chainAnt = 0;
                 enum pieceColor opponent_color = (p->color == WHITE) ? BLACK : WHITE;
+                int opponent_ants = (p->color == WHITE) ? gs->blackAntCount : gs->whiteAntCount;
+                value -= (10-opponent_ants)*20; //lower the base value of ant eater by 20 for every ant not on board
+                //basically, near endgame with little pawns, this piece should not be valued high
 
                 //(deltaR, deltaC) <--- (change in row, change in col)
                 //iterate through all directions aka 1 move in orthogonal or diagonal

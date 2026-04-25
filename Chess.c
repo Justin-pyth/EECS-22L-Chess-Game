@@ -80,6 +80,8 @@
         timedMoves            = 0;
         totalTime             = 0.0;
         nodeCount             = 0;
+        state->whiteAntCount    = 10;
+        state->blackAntCount    = 10;
         state->whiteKingMoved   = false;
         state->blackKingMoved   = false;
         state->whiteRookMovedQS = false;

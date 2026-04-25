@@ -20,7 +20,7 @@ extern int HISTORY[8][10][8][10];
 // Forward declaration for attack checking function
 bool isSquareAttackedBy(struct piece* board[8][10], int row, int col, enum pieceColor attackerColor);
 
-uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove);
+uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove, int alpha, int beta, int* outputScore);
 //acts as a wrapper for negaMax, returning bestMove, based off depth <--- determines difficulty
 uint32_t findBestMove(struct gameState* gs, int depth);
 
