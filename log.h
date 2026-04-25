@@ -3,18 +3,10 @@
 
 #include "log.h"
 #include "Moves.h"
-#include "Engine.h"
 #include "types.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-struct log {
-    char move[16]; // "a1 - j10"
-    int piece; // Black or White
-    int moveNumber; // 1-1000 for # of moves in the game
-    int history[1000];
-};
 
 // Starting board layout for reference
 const enum pieceType backRow[10] = {

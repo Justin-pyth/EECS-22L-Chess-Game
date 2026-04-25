@@ -1,6 +1,5 @@
 #include "log.h"
 #include "Moves.h"
-#include "Engine.h"
 #include "types.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +24,7 @@ void locationToNotation(struct location loc, char* buf, int bufSize) {
 }
 
 int encodeMoveLocation(struct location from, struct location to, struct piece* Piece) {
-    int fromEncoded = encodeLocation(from, Piece->type);
+    int fromEncoded = encodeLocation(from, Piece->piece);
     int toEncoded   = to.col * 10 + to.row;
     return fromEncoded * 1000 + toEncoded;
 }
