@@ -7,6 +7,7 @@
 #define INF 1000000
 #define MAX_MOVES 1024
 #define MAX_DEPTH 64
+#define SEARCH_STACK_SIZE 512
 
 
 #include "Moves.h"

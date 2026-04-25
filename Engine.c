@@ -17,7 +17,6 @@ int nodeCount = 0;
 bool stop_search = false;
 double time_start = 0;
 double time_allot = 2000; //2 seconds alloted per move (can change)
-#define SEARCH_STACK_SIZE 512
 static uint64_t SEARCH_HASHES[SEARCH_STACK_SIZE];
 
 //start of killer move implementation
@@ -30,8 +29,7 @@ int HISTORY[8][10][8][10];  //row col row col
 static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply)
 {
     nodeCount++;
-    int originalAlpha = alpha;
-    //find all pseudolegal moves and filter out self-checks in-search
+    int originalAlpha = alpha; //store for TT flag
 
     //only sample every 2^11 nodes, to reduce get elasped time checks (sort of expensive)
     if (nodeCount % 2048 == 0) 
@@ -53,15 +51,15 @@ static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply
     if (lookupTT(posHash, depth, alpha, beta, &ttScore, ply))
         return ttScore;
 
-    int moveCount = 0;
-    uint32_t moves[MAX_MOVES];
-    //rather than using getMoves to return all legal moves, now just get psuedo legal moves
-    getPseudoLegalMoves(gs, moves, &moveCount);
-
     //only use getScore after ensuring no checkmate condition
     //base condition:
     //run q-search on leaves, will be expensive, but results in better tactics
     if (depth <= 0) return Quiesce(gs, alpha, beta, ply);
+
+    int moveCount = 0;
+    uint32_t moves[MAX_MOVES];
+    //gather all psuedo legal moves
+    getPseudoLegalMoves(gs, moves, &moveCount);
 
     //sort according to MVV-LVA, history, and killer-move bonuses
     preSort(gs, moves, moveCount, depth);
@@ -85,7 +83,7 @@ static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply
         //reset legal move tracker
         legalMoveFound = true;
 
-        //flip the board for next player
+        //search from other player's perspective
         int score = -negaMax(gs, depth - 1, -beta, -alpha, ply + 1);
 
         undoMove(gs, &u);
@@ -97,7 +95,7 @@ static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply
         if(score > bestScore)
             bestScore = score;
 
-        //recompute alpha and prune
+        //recompute alpha(lower bound), if bestScore is higher, then that is the new low bound
         alpha = MAX(alpha, bestScore);
         if (beta <= alpha)
         {
@@ -209,6 +207,8 @@ uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
 
         undoMove(gs, &u);
 
+        if (stop_search) return bestMove;
+
         if(bestMove == 0 || score > maxScore)
         {
             maxScore = score;
@@ -232,7 +232,6 @@ uint32_t findBestMove(struct gameState* gs, int depth)
     memset(SEARCH_HASHES, 0, sizeof(SEARCH_HASHES));
     //reset the time trackers
     stop_search = false;
-    time_start = get_current_time();
 
     //always keep a legal fallback move in case the search times out
     uint32_t legalMoves[MAX_MOVES];
@@ -240,6 +239,8 @@ uint32_t findBestMove(struct gameState* gs, int depth)
     getMoves(gs, legalMoves, &legalMoveCount);
     if (legalMoveCount == 0)
         return 0;
+
+    time_start = get_current_time();
 
     uint32_t bestMove = legalMoves[0];
     uint32_t previousBestMove = bestMove;
@@ -419,11 +420,6 @@ static int Quiesce(struct gameState* gs, int alpha, int beta, int ply)
     if (ply > 0 && ply - 1 < SEARCH_STACK_SIZE)
         SEARCH_HASHES[ply - 1] = posHash;
 
-    int static_score = getScore(gs);
-
-    //if in check, look to uncheck -inf is high penalty
-    int best_score = currentPlayerInCheck ? -INF : static_score;
-
     //once again, this is used for optimization, sample every so often instead of every node(becomes very expensive)
     if (nodeCount % 2048 == 0) 
     { 
@@ -431,6 +427,11 @@ static int Quiesce(struct gameState* gs, int alpha, int beta, int ply)
             stop_search = true;
     }
     if (stop_search) return alpha;
+
+    int static_score = getScore(gs);
+
+    //if in check, look to uncheck -inf is high penalty
+    int best_score = currentPlayerInCheck ? -INF : static_score;
 
     if (!currentPlayerInCheck)
     {
@@ -533,32 +534,42 @@ static inline bool isPromotion(uint32_t move)
 
 static bool isSearchDraw(const struct gameState* gs, uint64_t posHash, int ply)
 {
+    //repetition count, if inputted ply is > 0, current node needs to be counted
     int repetitions = (ply > 0) ? 1 : 0;
 
+    //50 move rule
     if (gs->halfMove_count >= 100)
         return true;
 
+    //repeat hashes until reaching current ply (half move)
     for (int i = 0; i < currentPly; i++)
     {
+        //if the exact position was found
         if (HASHES[i] == posHash)
         {
+            //increment and check for 3 fold draw rule
             repetitions++;
             if (repetitions >= 3)
                 return true;
         }
     }
 
+    //if its one move down, start comparing ancestors
     if (ply > 1)
     {
+        //if u are on move 5, there are 4 moves before that
         int ancestorCount = ply - 1;
-        if (ancestorCount > SEARCH_STACK_SIZE)
+        if (ancestorCount > SEARCH_STACK_SIZE) //out of bounds fall back
             ancestorCount = SEARCH_STACK_SIZE;
 
+        //check all the moves that led up to the current
         for (int i = 0; i < ancestorCount; i++)
         {
+            //if any of them match, then increment repetition counter
             if (SEARCH_HASHES[i] == posHash)
             {
                 repetitions++;
+                //if 3 or more matches, then its 3 fold draw rule
                 if (repetitions >= 3)
                     return true;
             }
