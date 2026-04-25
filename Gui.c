@@ -615,7 +615,9 @@ static void startNewGame(void) {
     if (app.aiSource) { g_source_remove(app.aiSource); app.aiSource = 0; }
     initGameState(&app.gs);
     resetRepetitionTracking();
+    clearTT();
     initializeBoard(app.gs.board);
+    storePositionHash(&app.gs);
     clearSelection();
     app.hasLast   = false;
     app.gameOver  = false;

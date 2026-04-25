@@ -397,6 +397,7 @@ int main(void) {
     struct gameState state;
     initGameState(&state);
     resetRepetitionTracking();
+    clearTT();
     initializeBoard(state.board);
 
     /* [REMOVE WHEN GUI ADDED] — terminal game-mode and difficulty prompts */

@@ -320,7 +320,9 @@ int main(void) {
     struct gameState state;
     initGameState(&state);
     resetRepetitionTracking();
+    clearTT();
     initializeBoard(state.board);
+    storePositionHash(&state);
 
     enum gameMode mode = promptGameMode();
     enum pieceColor humanColor = WHITE;

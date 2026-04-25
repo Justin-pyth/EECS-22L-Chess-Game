@@ -20,17 +20,6 @@ bool inCheck(const struct gameState* gs)
     return isColorInCheck(gs, gs->currentPlayer);
 }
 
-/* ── Decode a struct move back to row/col integers ──────────────────── */
-
-static void decodeMoveCoords(struct move m,
-                              int* fr, int* fc, int* tr, int* tc)
-{
-    *fr = m.pos1.rank - 1;
-    *fc = m.pos1.file - 'a';
-    *tr = m.pos2.rank - 1;
-    *tc = m.pos2.file - 'a';
-}
-
 /*
     getAntMoves
     Returns all possible moves that a given Ant (pawn) piece can make
