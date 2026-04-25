@@ -75,6 +75,13 @@
     }
 
     void initGameState(struct gameState* state) {
+        setPromotionCount(0);
+        moveNumber            = 1;
+        timedMoves            = 0;
+        totalTime             = 0.0;
+        nodeCount             = 0;
+        state->whiteAntCount    = 10;
+        state->blackAntCount    = 10;
         state->whiteKingMoved   = false;
         state->blackKingMoved   = false;
         state->whiteRookMovedQS = false;
@@ -86,6 +93,7 @@
         state->currentPlayer    = WHITE;
         state->halfMove_count   = 0;
         state->fullMove_count   = 1;
+        memset(&state->move_log, 0, sizeof(state->move_log));
     }
 
     //HELPER FUNCTIONS
@@ -328,7 +336,11 @@
 
     
 
-    //Game State
+    //check the specific color, to prevent errors in between applying and undoing a move
+    bool isColorInCheck(const struct gameState* gs, enum pieceColor color) {
+        return isKingInCheck((struct piece*(*)[10])gs->board, color);
+    }
+
     bool isKingInCheck(struct piece* board[8][10], enum pieceColor color) {
         int kingRow, kingCol;
         if (!findKing(board, color, &kingRow, &kingCol)) return false;
@@ -392,6 +404,8 @@ int main(void) {
     srand(time(NULL));
     struct gameState state;
     initGameState(&state);
+    resetRepetitionTracking();
+    clearTT();
     initializeBoard(state.board);
 
     /* [REMOVE WHEN GUI ADDED] — terminal game-mode and difficulty prompts */
@@ -436,6 +450,7 @@ int main(void) {
             Move chosen = getHumanMove(&state);
             if (!chosen) { printf("\nNo input — game ended.\n"); break; }
             applyMove(&state, chosen, NULL);
+            storePositionHash(&state);
         } else {
 
 
@@ -482,6 +497,15 @@ int main(void) {
 
             /* [REMOVE WHEN GUI ADDED] */
             printf("\nDraw by fifty-move rule.\n");
+
+            printStats(totalTime, timedMoves, nodeCount);
+            break;
+        }
+        if (isThreeFoldDraw(HASHES[currentPly-1], currentPly)) {
+
+
+            /* [REMOVE WHEN GUI ADDED] */
+            printf("\nDraw by threefold repetition.\n");
 
             printStats(totalTime, timedMoves, nodeCount);
             break;

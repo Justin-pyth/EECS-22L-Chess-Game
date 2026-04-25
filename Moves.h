@@ -44,6 +44,7 @@ struct location {
 struct MoveUndo {
     struct piece*   board[8][10];
     enum pieceColor currentPlayer;
+    int  whiteAntCount, blackAntCount;
     bool whiteKingMoved, blackKingMoved;
     bool whiteRookMovedQS, whiteRookMovedKS;
     bool blackRookMovedQS, blackRookMovedKS;
@@ -72,6 +73,12 @@ static inline int getFlags  (uint32_t move) { return (move >> 16);       }
 /* Primary move generator — fills moves[] with all legal moves for the
    current player and sets *moveCount.                                  */
 void getMoves(struct gameState* gs, Move* moves, int* moveCount);
+
+/* Pseudolegal move generator — excludes self-check filtering.         */
+void getPseudoLegalMoves(struct gameState* gs, Move* moves, int* moveCount);
+
+/* Returns true if the given color's king is in check.                 */
+bool isColorInCheck(const struct gameState* gs, enum pieceColor color);
 
 /* Returns true if the current player's king is in check.              */
 bool inCheck(const struct gameState* gs);

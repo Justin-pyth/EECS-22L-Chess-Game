@@ -1,207 +1,103 @@
 #include "Engine.h"
 
+//FORWARD DECLARATIONS==================================================================================START
+static bool isSearchDraw(const struct gameState* gs, uint64_t posHash, int ply);
+static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply);
+static int Quiesce(struct gameState* gs, int alpha, int beta, int ply);
+static inline bool isCapture(const struct gameState* gs, uint32_t move);
+static inline double get_current_time(void);
+static inline double get_elapsed_time(double start);
+static inline bool isPromotion(uint32_t move);
+//FORWARD DECLARATIONS==================================================================================END
+
+//TRACKING VARIABLES AND DEBUG==========================================================================START
+
 int nodeCount = 0;
-const int weight[7] =
-{
-    [KING]     = 100000,
-    [QUEEN]    = 900,
-    [KNIGHT]   = 300,
-    [BISHOP]   = 350,
-    [ROOK]     = 500,
-    [ANT]      = 100,
-    [ANTEATER] = 330
-};
 
 bool stop_search = false;
 double time_start = 0;
-double time_allot = 1000; //2 seconds alloted per move (can change)
+double time_allot = 2000; //2 seconds alloted per move (can change)
+static uint64_t SEARCH_HASHES[SEARCH_STACK_SIZE];
 
 //start of killer move implementation
-uint32_t K_MOVES[64][2];    //max depth, 2 killer moves stored per depth
+uint32_t K_MOVES[MAX_DEPTH][2];    //max depth, 2 killer moves stored per depth
 //history implementation
 int HISTORY[8][10][8][10];  //row col row col
 
-int getScore(const struct gameState* gs)
-{
-    int score = 0;
-    //int checkmate = 1e8;
+//TRACKING VARIABLES AND DEBUG==========================================================================END
 
-    //ranks = rows (row)
-    //file  = columns (col)
+#define ASPIRATION_WINDOW 50
 
-    for(int row = 0; row < 8; row++)
-    {   
-        //find each piece on board
-        for(int col = 0 ; col < 10; col++)
-        {
-            struct piece* p = gs->board[row][col];
-            if (!p) continue;
-
-            //get value of piece
-            int value = weight[p->piece];
-            
-            //due to the engine picking the same pawn to move in a straight line
-            //positional multipliers were added
-
-            //give up to +35 bonus to increase pawn advancement
-            if (p->piece == ANT)
-            {
-                //distance traveled by pawn from starting pos
-                int tilPromo = (p->color == WHITE) ? row : (7 - row);
-                int row_bonus[] = {0, 10, 30, 80, 200, 400, 600, 750};
-
-                if (tilPromo < 0) tilPromo = 0;
-                if (tilPromo > 7) tilPromo = 7;
-                value += row_bonus[tilPromo];
-
-            }
-
-            if (p->piece == QUEEN) value += 200;
-            
-            //discourage these pieces from staying near their home row
-            if (p->piece == KNIGHT || p->piece == BISHOP || p->piece == ANTEATER)
-                if (!((p->color == WHITE) ? (row == 0) : (row == 7))) 
-                    value += 20;
-
-            if (p->piece == ANTEATER) 
-            {
-                int near_Ant = 0;
-                int chainAnt = 0;
-                enum pieceColor opponent_color = (p->color == WHITE) ? BLACK : WHITE;
-
-                //(deltaR, deltaC) <--- (change in row, change in col)
-                //iterate through all directions aka 1 move in orthogonal or diagonal 
-                for(int deltaRow = -1 ; deltaRow <= 1 ; deltaRow++)
-                {
-                    for(int deltaCol = -1; deltaCol <= 1 ; deltaCol++)
-                    {
-                        //ignore self
-                        if(deltaRow == 0 && deltaCol == 0) continue;
-
-                        //find new row and col
-                        int newRow = row + deltaRow;
-                        int newCol = col + deltaCol;
-                        //make sure its not out of bounds ... segfault
-                        if (newRow < 0 || newRow >= 8 || newCol < 0 || newCol >= 10) continue;
-
-                        //identify the victim
-                        struct piece* victim = gs->board[newRow][newCol];
-
-                        //check if theres a piece there, check if its an ant,  check if its the color of opponent
-                        if(victim && victim->piece == ANT && victim->color == opponent_color)
-                        {
-                            near_Ant++; //theres an ant nearby
-
-                            //scan through chaining
-                            int chainRow = newRow + deltaRow;
-                            int chainCol = newCol + deltaCol;
-
-                            //while in bounds
-                            while(chainRow >= 0 && chainRow < 8 && chainCol >= 0 && chainCol < 10)
-                            {
-                                struct piece* chainVictim = gs->board[chainRow][chainCol];;
-
-                                if(!chainVictim || chainVictim->piece != ANT || chainVictim->color != opponent_color) break;
-
-                                //new ant to chain
-                                chainAnt++;
-                                //check next
-                                chainRow += deltaRow;
-                                chainCol += deltaCol;
-                            }
-                        }
-                    }
-                }
-
-                //bonuses (arbitrary TO ADJUST LATER)
-                value += near_Ant * (weight[ANT] / 20);
-                value += MIN(chainAnt, 4) * (weight[ANT] / 30);
-
-
-                //increase value for ability to capture on current turn
-                if(near_Ant > 0)
-                    value += 10;
-            }
-
-            //for all pieces, increase frequency that center tiles are occupied
-            if (col >= 3 && col <= 6 && row >= 2 && row <= 5)
-            //inner
-                value += 10;
-            else if (col >= 2 && col <= 7 && row >= 1 && row <= 6)
-            //outer
-                value += 5;
-
-            //if White, add the score, else if Black, subtract the score
-            score += (p->color == WHITE) ? value : -value;
-        }
-    }
-
-    // return relative to side to move
-    return (gs->currentPlayer == WHITE) ? score : -score;
-}
-
-int negaMax(struct gameState* gs, int depth, int alpha, int beta)
+static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply)
 {
     nodeCount++;
-    //find all legal moves
+    int originalAlpha = alpha; //store for TT flag
 
+    //sample every 2048 nodes
     if (nodeCount % 2048 == 0) 
     { 
         if (get_elapsed_time(time_start) >= time_allot) 
             stop_search = true;
     }
-    if (stop_search) return 0;
+    if (stop_search) return originalAlpha;
+
+    //always check the t_table before running this to exit earlier
+    uint64_t posHash = positionHash(gs);
+    if (isSearchDraw(gs, posHash, ply))
+        return 0;
+
+    if (ply > 0 && ply - 1 < SEARCH_STACK_SIZE)
+        SEARCH_HASHES[ply - 1] = posHash;
+
+    int ttScore;
+    if (lookupTT(posHash, depth, alpha, beta, &ttScore, ply))
+        return ttScore;
+
+    //only use getScore after ensuring no checkmate condition
+    //base condition:
+    //run q-search on leaves, will be expensive, but results in better tactics
+    if (depth <= 0) return Quiesce(gs, alpha, beta, ply);
 
     int moveCount = 0;
     uint32_t moves[MAX_MOVES];
-    getMoves(gs, moves, &moveCount);
+    //gather all psuedo legal moves
+    getPseudoLegalMoves(gs, moves, &moveCount);
 
-    //if no legal moves
-    if(moveCount == 0)
-    {
-        //and in check
-        if(inCheck(gs)) return -INF+depth; //then checkmate
-        //and not in check
-        else return 0;  //stalemate
-    }
-
-    //only use getScore after ensuring no checkmate condition
-    //base condition
-    if (depth <= 0) return Quiesce(gs, alpha, beta);
-
-    //sort according to MVV-LVA (after base conditions)
-    preSort(gs, moves, moveCount);
-
-    //place the killer moves in front, note that moves[0] will contain the best move from preSort
-    //which could possibly be better than killer moves so start at 1 to avoid that
-    for (int i = 1; i < moveCount; i++) 
-    {
-        if (moves[i] == K_MOVES[depth][0] || moves[i] == K_MOVES[depth][1]) 
-        {
-            uint32_t tempMove = moves[i];
-            moves[i] = moves[0];
-            moves[0] = tempMove;
-            break;
-        }
-    }
+    //sort according to MVV-LVA, history, and killer-move bonuses
+    preSort(gs, moves, moveCount, depth);
 
     int bestScore = -INF;
+    bool legalMoveFound = false;
+    enum pieceColor movingColor = gs->currentPlayer;
     for(int i = 0; i < moveCount; i++)
     {
         struct MoveUndo u;
         applyMove(gs, moves[i], &u);
 
-        int score = -negaMax(gs, depth - 1, -beta, -alpha);
+        //place the legality check here instead
+        //prevents having to check legality of all moves each run as it will most likely cutoff early
+        if (isColorInCheck(gs, movingColor))
+        {
+            undoMove(gs, &u);
+            continue;
+        }
+
+        //reset legal move tracker
+        legalMoveFound = true;
+
+        //search from other player's perspective
+        int score = -negaMax(gs, depth - 1, -beta, -alpha, ply + 1);
 
         undoMove(gs, &u);
 
         //premature exit
-        if (stop_search) return 0;
+        if (stop_search) return alpha;
+
 
         if(score > bestScore)
             bestScore = score;
 
-        //recompute alpha and prune
+        //recompute alpha(lower bound), if bestScore is higher, then that is the new low bound
         alpha = MAX(alpha, bestScore);
         if (beta <= alpha)
         {
@@ -220,19 +116,43 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
         }
     }
 
+    //if no legal moves
+    if(!legalMoveFound)
+    {
+        //and in check
+        if(inCheck(gs)) return -INF + ply; //then checkmate
+        //and not in check
+        else return 0;  //stalemate
+    }
+
+    //store score, depth, flag(as bounds)
+    int flag;
+    if (bestScore <= originalAlpha)
+        flag = TT_FLAG_UPPER;
+    else if (bestScore >= beta)
+        flag = TT_FLAG_LOWER;
+    else
+        flag = TT_FLAG_EXACT;
+    
+    storeTT(posHash, bestScore, depth, flag, ply);
+    
     return bestScore;
 }
 
-uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
+uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove, int alpha, int beta, int* outputScore)
 {
     int maxScore = -INF;
-    //get legal moves
+
+    //get pseudolegal moves and filter out self-checks in-search
     int moveCount = 0;
     uint32_t moves[MAX_MOVES];
-    getMoves(gs, moves, &moveCount);
+    getPseudoLegalMoves(gs, moves, &moveCount);
+
+    //at the beginning, there is no previous best move
+    bool pvFound = false;
 
     //pick an initial move, maybe add randomness to this
-    if(moveCount == 0) return 0; //<---if no legal moves, don't access moves[0]
+    if(moveCount == 0) return 0; //<---if no pseudolegal moves, don't access moves[0]
 
     //if pvMove exists, aka not first depth to be searched
     if (pvMove != 0) 
@@ -247,39 +167,70 @@ uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
                 uint32_t temp = moves[0];
                 moves[0] = moves[i];
                 moves[i] = temp;
+                pvFound = true;
                 break;
             }
         }
     }
 
     //index offset so the previous best move remains in front
-    if (moveCount > 1) {
+    if (pvFound && moveCount > 1) {
         //sort according to MVV-LVA + History
-        preSort(gs, &moves[1], moveCount - 1);
+        preSort(gs, &moves[1], moveCount - 1, depth);
+    }
+    //else order the moves
+    else if (moveCount > 0)
+    {
+        preSort(gs, moves, moveCount, depth);
     }
 
 
-    uint32_t bestMove = moves[0];
+    uint32_t bestMove = 0;
+    bool legalMoveFound = false;
     
-    int alpha = -INF;
-    int beta = INF;
+    enum pieceColor movingColor = gs->currentPlayer;
     for(int i = 0 ; i < moveCount; i++)
     {
         struct MoveUndo u;
         applyMove(gs, moves[i], &u);
 
-        int score = -negaMax(gs, depth - 1, -beta, -alpha);
+        //skip pseudolegal moves that leave the moving color in check
+        if (isColorInCheck(gs, movingColor))
+        {
+            undoMove(gs, &u);
+            continue;
+        }
+
+        legalMoveFound = true;
+
+
+        //apply negamax to get score of move
+        int score = -negaMax(gs, depth - 1, -beta, -alpha, 1);
 
         undoMove(gs, &u);
 
-        if(score > maxScore)
+        if (stop_search) return bestMove;
+
+        //if this is not the first run, and the score is max
+        if(bestMove == 0 || score > maxScore)
         {
+            //set new max and assign as best move
             maxScore = score;
             bestMove = moves[i];
         }
+        //reassign the lower bound
         alpha = MAX(alpha, maxScore);
-        if(beta <= alpha) break;
+        if(beta <= alpha) break; //lower bound > upper bound? exit
     }
+
+    //if not legal moves were found, return 0 for draw/stalemate
+    if (!legalMoveFound)
+    {
+        *outputScore = inCheck(gs) ? -INF : 0;
+        return 0;
+    }
+
+    *outputScore = maxScore;
 
     return bestMove;
 }
@@ -290,25 +241,54 @@ uint32_t findBestMove(struct gameState* gs, int depth)
     //reset killer moves and history
     memset(K_MOVES, 0, sizeof(K_MOVES));
     memset(HISTORY, 0, sizeof(HISTORY));
+    memset(SEARCH_HASHES, 0, sizeof(SEARCH_HASHES));
+    //reset the time trackers
     stop_search = false;
+
+    //always keep a legal fallback move in case the search times out
+    uint32_t legalMoves[MAX_MOVES];
+    int legalMoveCount = 0;
+    getMoves(gs, legalMoves, &legalMoveCount);
+    if (legalMoveCount == 0)
+        return 0;
+
     time_start = get_current_time();
 
-    uint32_t bestMove = 0;
-    uint32_t previousBestMove = 0;
+    uint32_t bestMove = legalMoves[0];
+    uint32_t previousBestMove = bestMove;
+    int previousScore = 0;
 
     //iterate at each depth
     for(int i = 1 ; i <= depth; i++)
     {
-        //return the best move at the depth
-        uint32_t move = depthSearch(gs, i, previousBestMove);
-        //if move is valid, then set it as best
-        if(!stop_search)
-        {
-            previousBestMove = move;
-            bestMove = move;
-        }
-        else break;
+        int alpha = -INF;
+        int beta = INF;
+        int score = 0;
 
+        if (i > 1)
+        {
+            alpha = previousScore - ASPIRATION_WINDOW;
+            beta = previousScore + ASPIRATION_WINDOW;
+        }
+
+        //return the best move at the depth
+        uint32_t move = depthSearch(gs, i, previousBestMove, alpha, beta, &score);
+
+        if (stop_search)
+            break;
+
+        //if the score fell outside the window, research with the full bounds
+        if (i > 1 && (score <= alpha || score >= beta))
+        {
+            move = depthSearch(gs, i, previousBestMove, -INF, INF, &score);
+            if (stop_search)
+                break;
+        }
+
+        //if move is valid, then set it as best
+        previousBestMove = move;
+        bestMove = move;
+        previousScore = score;
     }
     return bestMove;
 }
@@ -334,27 +314,26 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
 
 
     uint32_t bestMove = findBestMove(gs, depth);
+    if (bestMove == 0) return;
     applyMove(gs, bestMove, NULL);
+    storePositionHash(gs);
 }
 
-int MVV_LVA(const struct gameState* gs, uint32_t move)
+int MVV_LVA(const struct gameState* gs, uint32_t move, int depth)
 {
 
     //access the specific piece from board
     struct piece* attacker = gs->board[getFromRow(move)][getFromCol(move)];
     struct piece* victim = gs->board[getToRow(move)][getToCol(move)];
+    int flags = getFlags(move);
 
-
-    //if not a capture, then 
-    //if its a non capture move, return the score as the history to preSort
-    if(!victim)
-        return HISTORY[getFromRow(move)][getFromCol(move)][getToRow(move)][getToCol(move)];
-
+    if (flags == MOVE_EN_PASSANT || flags == MOVE_ANTEATING) {
+        return 10100; //tune this, just make it above 10k so q-funct doesnt skip it
+    }
 
     if (isPromotion(move)) 
     {
-        int promoValue;
-        int flags = getFlags(move);
+        int promoValue = 0;
         switch (flags)
         {
             case MOVE_PROMO_QUEEN:    promoValue = weight[QUEEN]; break;
@@ -364,13 +343,66 @@ int MVV_LVA(const struct gameState* gs, uint32_t move)
             case MOVE_PROMO_ANTEATER: promoValue = weight[ANTEATER]; break;
         }
 
-    return 10000 + promoValue;
-}
-    int flags = getFlags(move);
-    if (flags == MOVE_EN_PASSANT || flags == MOVE_ANTEATING) {
-        return 10100; //tune this, just make it above 10k so q-funct doesnt skip it
+        return 10000 + promoValue + (victim ? weight[victim->piece] : 0);
     }
 
+    //if not a capture:
+    if(!victim)
+    {
+        int score = HISTORY[getFromRow(move)][getFromCol(move)][getToRow(move)][getToCol(move)];
+        int fromRow = getFromRow(move), toRow = getToRow(move);
+        int toCol = getToCol(move);
+
+        //have 2 killer moves, the better move is slightly more valued
+        if (depth > 0)
+        {
+            if (move == K_MOVES[depth][0]) return 9500;
+            if (move == K_MOVES[depth][1]) return 9400;
+        }
+
+        //encourage castling early (TUNE THIS)
+        if (flags == MOVE_CASTLE_KS || flags == MOVE_CASTLE_QS)
+            score += 800;
+
+        //to encourage advancement/less repetitive moves
+        if (attacker)
+        {
+            //encourage the following pieces to leave the homerow
+            if (attacker->piece == KNIGHT || attacker->piece == BISHOP || attacker->piece == ANTEATER)
+            {
+                int homeRow = (attacker->color == WHITE) ? 0 : 7;
+                if (fromRow == homeRow && toRow != homeRow)
+                    score += 35;
+            }
+
+            //encourage developement (TUNE)
+            if (attacker->piece == ANT)
+            {
+                int startRow = (attacker->color == WHITE) ? 1 : 6;
+                if (fromRow == startRow)
+                {
+                    //near the center, give a bonus
+                    if (toCol >= 3 && toCol <= 6) score += 35;
+                    //on the sides, remove some score
+                    if (toCol == 0 || toCol == 9) score -= 20;
+                }
+            }
+
+            //penalty for not castling(tune) if you ahve chance to castle
+            if (attacker->piece == KING && flags != MOVE_CASTLE_KS && flags != MOVE_CASTLE_QS)
+                score -= 50;
+        }
+
+        //seperated the bonuses for center
+        //inner center gives more
+        if (toCol >= 3 && toCol <= 6 && toRow >= 2 && toRow <= 5)
+            score += 12;
+        //a bit further outside, it still gives a bonus, but much less
+        else if (toCol >= 2 && toCol <= 7 && toRow >= 1 && toRow <= 6)
+            score += 6;
+
+        return score;
+    }
     //if capture, subtract the victim's value by attackers value
     //goal is to get the highest victim value, lowest attacker value
     //ex: pawn->queen
@@ -378,12 +410,12 @@ int MVV_LVA(const struct gameState* gs, uint32_t move)
 
 }
 
-void preSort(const struct gameState* gs, uint32_t* moves, int moveCount)
+void preSort(const struct gameState* gs, uint32_t* moves, int moveCount, int depth)
 {
     //compute weights
     int scores[MAX_MOVES];
     for(int i = 0 ; i<moveCount; i++)
-        scores[i] = MVV_LVA(gs, moves[i]);
+        scores[i] = MVV_LVA(gs, moves[i], depth);
 
     //a modified version of insertion sort w/ shifting instead of swaps
     //note : if i = 0, it would already be sorted, so just skip to next index 1
@@ -407,9 +439,19 @@ void preSort(const struct gameState* gs, uint32_t* moves, int moveCount)
     }
 }
 
-int Quiesce(struct gameState* gs, int alpha, int beta)
+static int Quiesce(struct gameState* gs, int alpha, int beta, int ply)
 {
     nodeCount++;
+
+    bool currentPlayerInCheck = inCheck(gs);
+    uint64_t posHash = positionHash(gs);
+    if (isSearchDraw(gs, posHash, ply))
+        return 0;
+
+    if (ply > 0 && ply - 1 < SEARCH_STACK_SIZE)
+        SEARCH_HASHES[ply - 1] = posHash;
+
+    //once again, this is used for optimization, sample every so often instead of every node(becomes very expensive)
     if (nodeCount % 2048 == 0) 
     { 
         if (get_elapsed_time(time_start) >= time_allot) 
@@ -419,29 +461,48 @@ int Quiesce(struct gameState* gs, int alpha, int beta)
 
     int static_score = getScore(gs);
 
-    int best_score = static_score;
-    if(best_score >= beta)
-        return best_score;
-    if(best_score > alpha)
-        alpha = best_score;
+    //if in check, look to uncheck -inf is high penalty
+    int best_score = currentPlayerInCheck ? -INF : static_score;
+
+    if (!currentPlayerInCheck)
+    {
+        if(best_score >= beta)
+            return best_score;
+        if(best_score > alpha)
+            alpha = best_score;
+    }
     
     uint32_t moves[MAX_MOVES];
     int moveCount = 0;
-    getMoves(gs, moves, &moveCount);
-    preSort(gs, moves, moveCount); //give better moves first for earlier beta cutoffs
+    getPseudoLegalMoves(gs, moves, &moveCount);
+    preSort(gs, moves, moveCount, 0); //give better moves first for earlier beta cutoffs
 
+    bool anyLegalMove = false;
+    enum pieceColor movingColor = gs->currentPlayer;
     for(int i = 0; i< moveCount ; i++)
     {
         uint32_t move = moves[i];
-
-        //filter out non-captures (quiet moves)
-        if (!isCapture(gs, move) && !isPromotion(move)) continue;
-
+        bool captureOrPromo = isCapture(gs, move) || isPromotion(move);
 
         struct MoveUndo u;
         applyMove(gs, move, &u);
 
-        int score = -Quiesce(gs, -beta, -alpha);
+        //skip pseudolegal moves that leave moving piece in check (similar to negamax)
+        if (isColorInCheck(gs, movingColor))
+        {
+            undoMove(gs, &u);
+            continue;
+        }
+
+        anyLegalMove = true;
+
+        if (!currentPlayerInCheck && !captureOrPromo)
+        {
+            undoMove(gs, &u);
+            continue;
+        }
+
+        int score = -Quiesce(gs, -beta, -alpha, ply + 1);
 
         undoMove(gs, &u);
 
@@ -453,10 +514,18 @@ int Quiesce(struct gameState* gs, int alpha, int beta)
             alpha = score;
     }
 
+    if (!anyLegalMove)
+    {
+        if (currentPlayerInCheck)
+            return -INF + ply;
+        else
+            return 0;
+    }
+
     return best_score;
 }
 
-bool isCapture(struct gameState* gs, uint32_t move)
+static inline bool isCapture(const struct gameState* gs, uint32_t move)
 {
     int toRow = getToRow(move); int toCol = getToCol(move); int flags = getFlags(move);
 
@@ -471,17 +540,17 @@ bool isCapture(struct gameState* gs, uint32_t move)
     return (victim && victim->color != gs->currentPlayer);
 }
 
-double get_current_time() 
+static inline double get_current_time(void) 
 {
     return (double)clock() / CLOCKS_PER_SEC * 1000.0;
 }
 
-double get_elapsed_time(double start) 
+static inline double get_elapsed_time(double start) 
 {
     return get_current_time() - start;
 }
 
-bool isPromotion(uint32_t move)
+static inline bool isPromotion(uint32_t move)
 {
     int flags = getFlags(move);
 
@@ -492,4 +561,51 @@ bool isPromotion(uint32_t move)
         flags == MOVE_PROMO_KNIGHT ||
         flags == MOVE_PROMO_ANTEATER
     );
+}
+
+static bool isSearchDraw(const struct gameState* gs, uint64_t posHash, int ply)
+{
+    //repetition count, if inputted ply is > 0, current node needs to be counted
+    int repetitions = (ply > 0) ? 1 : 0;
+
+    //50 move rule
+    if (gs->halfMove_count >= 100)
+        return true;
+
+    //repeat hashes until reaching current ply (half move)
+    for (int i = 0; i < currentPly; i++)
+    {
+        //if the exact position was found
+        if (HASHES[i] == posHash)
+        {
+            //increment and check for 3 fold draw rule
+            repetitions++;
+            if (repetitions >= 3)
+                return true;
+        }
+    }
+
+    //if its one move down, start comparing ancestors
+    if (ply > 1)
+    {
+        //if u are on move 5, there are 4 moves before that
+        int ancestorCount = ply - 1;
+        if (ancestorCount > SEARCH_STACK_SIZE) //out of bounds fall back
+            ancestorCount = SEARCH_STACK_SIZE;
+
+        //check all the moves that led up to the current
+        for (int i = 0; i < ancestorCount; i++)
+        {
+            //if any of them match, then increment repetition counter
+            if (SEARCH_HASHES[i] == posHash)
+            {
+                repetitions++;
+                //if 3 or more matches, then its 3 fold draw rule
+                if (repetitions >= 3)
+                    return true;
+            }
+        }
+    }
+
+    return false;
 }
