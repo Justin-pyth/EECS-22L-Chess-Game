@@ -330,7 +330,7 @@ static void drawPiece(cairo_t* cr, GtkWidget* widget,
     double y = drow * SQUARE_SIZE;
 
     PangoLayout* layout = gtk_widget_create_pango_layout(widget, NULL);
-    PangoFontDescription* fd = pango_font_description_from_string("Segoe UI Symbol 36");
+    PangoFontDescription* fd = pango_font_description_from_string("Segoe UI Symbol 44");
     pango_layout_set_font_description(layout, fd);
     pango_layout_set_text(layout, pieceSymbol(p->piece, p->color), -1);
 
@@ -387,54 +387,26 @@ static void drawLabels(cairo_t* cr, GtkWidget* widget) {
    Promotion dialog
    ═══════════════════════════════════════════════════════════ */
 static enum pieceType showPromotionDialog(void) {
+    /* Clean approach: pass each button directly to gtk_dialog_new_with_buttons
+       so GTK wires the response ids correctly with no manual re-wiring. */
     GtkWidget* dlg = gtk_dialog_new_with_buttons(
-        "Promote Ant",
+        "Promote Ant — choose a piece",
         GTK_WINDOW(app.window),
         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-        NULL, NULL);
-    gtk_window_set_default_size(GTK_WINDOW(dlg), 340, 120);
+        "\xe2\x99\x95 Queen",    1,
+        "\xe2\x99\x96 Rook",     2,
+        "\xe2\x99\x97 Bishop",   3,
+        "\xe2\x99\x98 Knight",   4,
+        "\xe2\x93\x90 Anteater", 5,
+        NULL);
+    gtk_window_set_default_size(GTK_WINDOW(dlg), 480, 80);
 
-    GtkWidget* box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    gtk_container_set_border_width(GTK_CONTAINER(box), 16);
-
-    struct { const char* label; enum pieceType type; int resp; } opts[] = {
-        { "♕ Queen",     QUEEN,    1 },
-        { "♖ Rook",      ROOK,     2 },
-        { "♗ Bishop",    BISHOP,   3 },
-        { "♘ Knight",    KNIGHT,   4 },
-        { "Ⓐ Anteater",  ANTEATER, 5 },
-    };
-    for (int i = 0; i < 5; i++) {
-        GtkWidget* btn = gtk_button_new_with_label(opts[i].label);
-        g_object_set_data(G_OBJECT(btn), "resp", GINT_TO_POINTER(opts[i].resp));
-        g_signal_connect_swapped(btn, "clicked",
-                                 G_CALLBACK(gtk_dialog_response), dlg);
-        /* Each button stores its own response */
-        gtk_widget_set_name(btn, opts[i].label);
-        /* Use response through dialog_response: work around by tag */
-        g_object_set_data(G_OBJECT(dlg), opts[i].label, GINT_TO_POINTER(opts[i].type));
-        gtk_box_pack_start(GTK_BOX(box), btn, TRUE, TRUE, 0);
-        /* Wire response id manually */
-        GtkWidget* area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
-        (void)area;
-    }
-
-    /* Simpler: use a local enum result via button callbacks */
-    GtkWidget* area = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
-    gtk_box_pack_start(GTK_BOX(GTK_BOX(area)), box, TRUE, TRUE, 0);
+    GtkWidget* area  = gtk_dialog_get_content_area(GTK_DIALOG(dlg));
+    GtkWidget* label = gtk_label_new("Select the piece to promote your Ant to:");
+    gtk_widget_set_margin_top(label, 10);
+    gtk_widget_set_margin_bottom(label, 6);
+    gtk_box_pack_start(GTK_BOX(area), label, FALSE, FALSE, 0);
     gtk_widget_show_all(dlg);
-
-    /* We'll track which was clicked by response integer */
-    /* Re-wire: connect each button to gtk_dialog_response with id */
-    GList* children = gtk_container_get_children(GTK_CONTAINER(box));
-    int id = 1;
-    for (GList* l = children; l; l = l->next, id++) {
-        g_signal_handlers_disconnect_matched(l->data, G_SIGNAL_MATCH_FUNC,
-                                             0, 0, NULL,
-                                             G_CALLBACK(gtk_dialog_response), NULL);
-        gtk_dialog_add_action_widget(GTK_DIALOG(dlg), GTK_WIDGET(l->data), id);
-    }
-    g_list_free(children);
 
     gint response = gtk_dialog_run(GTK_DIALOG(dlg));
     gtk_widget_destroy(dlg);
