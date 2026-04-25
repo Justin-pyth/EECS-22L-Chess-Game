@@ -1,11 +1,13 @@
 #include "Engine.h"
 
-// Forward declarations
+//FORWARD DECLARATIONS==================================================================================START
 static bool isSearchDraw(const struct gameState* gs, uint64_t posHash, int ply);
-static int negaMaxInternal(struct gameState* gs, int depth, int alpha, int beta, int ply);
-static int quiesceInternal(struct gameState* gs, int alpha, int beta, int ply);
+static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply);
+static int Quiesce(struct gameState* gs, int alpha, int beta, int ply);
+//FORWARD DECLARATIONS==================================================================================END
 
 //TRACKING VARIABLES AND DEBUG==========================================================================START
+
 int nodeCount = 0;
 
 bool stop_search = false;
@@ -21,12 +23,7 @@ int HISTORY[8][10][8][10];  //row col row col
 
 //TRACKING VARIABLES AND DEBUG==========================================================================END
 
-int negaMax(struct gameState* gs, int depth, int alpha, int beta)
-{
-    return negaMaxInternal(gs, depth, alpha, beta, 0);
-}
-
-static int negaMaxInternal(struct gameState* gs, int depth, int alpha, int beta, int ply)
+static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply)
 {
     nodeCount++;
     int originalAlpha = alpha;
@@ -60,7 +57,7 @@ static int negaMaxInternal(struct gameState* gs, int depth, int alpha, int beta,
     //only use getScore after ensuring no checkmate condition
     //base condition:
     //run q-search on leaves, will be expensive, but results in better tactics
-    if (depth <= 0) return quiesceInternal(gs, alpha, beta, ply);
+    if (depth <= 0) return Quiesce(gs, alpha, beta, ply);
 
     //sort according to MVV-LVA, history, and killer-move bonuses
     preSort(gs, moves, moveCount, depth);
@@ -85,7 +82,7 @@ static int negaMaxInternal(struct gameState* gs, int depth, int alpha, int beta,
         legalMoveFound = true;
 
         //flip the board for next player
-        int score = -negaMaxInternal(gs, depth - 1, -beta, -alpha, ply + 1);
+        int score = -negaMax(gs, depth - 1, -beta, -alpha, ply + 1);
 
         undoMove(gs, &u);
 
@@ -204,7 +201,7 @@ uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove)
 
         legalMoveFound = true;
 
-        int score = -negaMaxInternal(gs, depth - 1, -beta, -alpha, 1);
+        int score = -negaMax(gs, depth - 1, -beta, -alpha, 1);
 
         undoMove(gs, &u);
 
@@ -406,12 +403,7 @@ void preSort(const struct gameState* gs, uint32_t* moves, int moveCount, int dep
     }
 }
 
-int Quiesce(struct gameState* gs, int alpha, int beta)
-{
-    return quiesceInternal(gs, alpha, beta, 0);
-}
-
-static int quiesceInternal(struct gameState* gs, int alpha, int beta, int ply)
+static int Quiesce(struct gameState* gs, int alpha, int beta, int ply)
 {
     nodeCount++;
 
@@ -474,7 +466,7 @@ static int quiesceInternal(struct gameState* gs, int alpha, int beta, int ply)
             continue;
         }
 
-        int score = -quiesceInternal(gs, -beta, -alpha, ply + 1);
+        int score = -Quiesce(gs, -beta, -alpha, ply + 1);
 
         undoMove(gs, &u);
 
