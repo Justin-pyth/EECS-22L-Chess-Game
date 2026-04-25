@@ -558,6 +558,8 @@ static void executeMove(Move m) {
     else
         applyMove(&app.gs, m, NULL);
 
+    storePositionHash(&app.gs);
+
     app.hasLast = true;
     app.lastFR = getFromRow(m); app.lastFC = getFromCol(m);
     app.lastTR = getToRow(m);   app.lastTC = getToCol(m);
@@ -612,6 +614,7 @@ static void scheduleAI(void) {
 static void startNewGame(void) {
     if (app.aiSource) { g_source_remove(app.aiSource); app.aiSource = 0; }
     initGameState(&app.gs);
+    resetRepetitionTracking();
     initializeBoard(app.gs.board);
     clearSelection();
     app.hasLast   = false;

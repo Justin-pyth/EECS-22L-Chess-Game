@@ -319,6 +319,7 @@ int main(void) {
     srand(time(NULL));
     struct gameState state;
     initGameState(&state);
+    resetRepetitionTracking();
     initializeBoard(state.board);
 
     enum gameMode mode = promptGameMode();
@@ -345,6 +346,7 @@ int main(void) {
             Move chosen = getHumanMove(&state);
             if (!chosen) { printf("\nNo input — game ended.\n"); break; }
             applyMove(&state, chosen, NULL);
+            storePositionHash(&state);
         } else {
             printf("\n%s's turn (AI). Thinking...\n", colorName);
             clock_t start = clock();
@@ -366,6 +368,7 @@ int main(void) {
         }
         if (isStalemate(&state)) { printf("\nStalemate! Draw.\n"); printStats(totalTime, timedMoves, nodeCount); break; }
         if (state.halfMove_count >= 100) { printf("\nDraw by fifty-move rule.\n"); printStats(totalTime, timedMoves, nodeCount); break; }
+        if (isThreeFoldDraw(HASHES[currentPly-1], currentPly)) { printf("\nDraw by threefold repetition.\n"); printStats(totalTime, timedMoves, nodeCount); break; }
         if (hasInsufficientMaterial(state.board)) { printf("\nDraw by insufficient material.\n"); printStats(totalTime, timedMoves, nodeCount); break; }
     }
     return 0;

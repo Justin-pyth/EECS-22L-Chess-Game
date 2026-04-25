@@ -1,5 +1,9 @@
 #include "Engine.h"
 
+// Forward declarations
+static uint64_t positionHash(const struct gameState* gs);
+
+//TRACKING VARIABLES AND DEBUG==========================================================================START
 int nodeCount = 0;
 const int weight[7] =
 {
@@ -17,32 +21,52 @@ double time_start = 0;
 double time_allot = 2000; //2 seconds alloted per move (can change)
 
 //start of killer move implementation
-uint32_t K_MOVES[64][2];    //max depth, 2 killer moves stored per depth
+uint32_t K_MOVES[MAX_DEPTH][2];    //max depth, 2 killer moves stored per depth
 //history implementation
 int HISTORY[8][10][8][10];  //row col row col
+uint64_t HASHES[MAX_DEPTH]; //store zorbrist position hashes here
+int currentPly = 0; //current half-move number for repetition tracking
 
-//
+//transposition table
+
+struct TTEntry {
+    uint64_t hash;
+    int score;
+    int depth;
+    int flag;
+};
+struct TTEntry tt[TT_SIZE];
+
+//TRACKING VARIABLES AND DEBUG==========================================================================END
+
+//to prevent risking king unnessarily
 static int kingSafetyScore(const struct gameState* gs, enum pieceColor color, int row, int col, bool endgame)
 {
     int score = 0;
     int homeRow = (color == WHITE) ? 0 : 7;
     int homeKingCol = 5;
+    
     bool kingMoved = (color == WHITE) ? gs->whiteKingMoved : gs->blackKingMoved;
     bool rookMovedQS = (color == WHITE) ? gs->whiteRookMovedQS : gs->blackRookMovedQS;
     bool rookMovedKS = (color == WHITE) ? gs->whiteRookMovedKS : gs->blackRookMovedKS;
     bool castled = (row == homeRow && (col == 3 || col == 7));
+    //conditions for castling rights
     bool canStillCastle = !kingMoved && (!rookMovedQS || !rookMovedKS);
     enum pieceColor opponent = (color == WHITE) ? BLACK : WHITE;
-    bool opponentQueenPresent = false;
 
-    for (int scanRow = 0; scanRow < 8 && !opponentQueenPresent; scanRow++)
+    //checkmates are harder without queen so detect it first
+    bool oppQueen_alive = false;
+    //scan through the board
+    for (int row = 0; row < 8 && !oppQueen_alive; row++)
     {
-        for (int scanCol = 0; scanCol < 10; scanCol++)
+        for (int col = 0; col < 10; col++)
         {
-            struct piece* p = gs->board[scanRow][scanCol];
+            struct piece* p = gs->board[row][col];
+            //check for queen piece
             if (p && p->color == opponent && p->piece == QUEEN)
             {
-                opponentQueenPresent = true;
+                //if queen found, exit
+                oppQueen_alive = true;
                 break;
             }
         }
@@ -50,6 +74,7 @@ static int kingSafetyScore(const struct gameState* gs, enum pieceColor color, in
 
     if (!endgame)
     {
+        //promote castling
         if (castled)
             score += 95;
         else if (row == homeRow && col == homeKingCol)
@@ -67,30 +92,35 @@ static int kingSafetyScore(const struct gameState* gs, enum pieceColor color, in
 
             if (row != homeRow)
                 score -= 15;
-
-            if (opponentQueenPresent)
+            //especially promote when queen alive
+            if (oppQueen_alive)
                 score -= 20;
         }
 
-        int shieldRow = row + ((color == WHITE) ? 1 : -1);
-        if (shieldRow >= 0 && shieldRow < 8)
-        {
-            for (int dc = -1; dc <= 1; dc++)
+        int pawnShieldRow = row + ((color == WHITE) ? 1 : -1);
+        if (pawnShieldRow >= 0 && pawnShieldRow < 8)
+        {   
+            //check the movement range of king
+            for (int deltaCol = -1; deltaCol <= 1; deltaCol++)
             {
-                int shieldCol = col + dc;
-                if (shieldCol < 0 || shieldCol >= 10) continue;
+                int pawnShieldCol = col + deltaCol;
+                if (pawnShieldCol < 0 || pawnShieldCol >= 10) continue;
 
-                struct piece* shield = gs->board[shieldRow][shieldCol];
-                if (shield && shield->color == color && shield->piece == ANT)
+                //detect potential pawns around king
+                struct piece* isPawn = gs->board[pawnShieldRow][pawnShieldCol];
+
+                //if there exists friendly pawns, add a bonus
+                if (isPawn && isPawn->color == color && isPawn->piece == ANT)
                     score += 14;
                 else
+                //if there are no friendly pawns, or near other pieces, lower the score
                     score -= 12;
             }
         }
     }
     else
     {
-        //In endgames, active kings are stronger, so reward centralisation.
+        //if in endgame, try to make king centralize
         if (col >= 3 && col <= 6 && row >= 2 && row <= 5)
             score += 25;
         else if (col >= 2 && col <= 7 && row >= 1 && row <= 6)
@@ -117,26 +147,33 @@ static int getMobility(const struct gameState* gs, enum pieceColor color)
 int getScore(const struct gameState* gs)
 {
     int score = 0;
-    int white_no_ant = 0;
-    int black_no_ant = 0;
+    //to check for endgame
+    int white_exclude_ants = 0;
+    int black_exclude_ants = 0;
     //int checkmate = 1e8;
 
     //ranks = rows (row)
     //file  = columns (col)
 
+    //scan through board
     for (int row = 0; row < 8; row++)
     {
         for (int col = 0; col < 10; col++)
         {
             struct piece* p = gs->board[row][col];
+            //skip king and ants
             if (!p || p->piece == KING || p->piece == ANT) continue;
 
-            if (p->color == WHITE) white_no_ant += weight[p->piece];
-            else                   black_no_ant += weight[p->piece];
+            //non-ant piece adds to the weight count
+            if (p->color == WHITE) 
+                white_exclude_ants += weight[p->piece];
+            else
+                black_exclude_ants += weight[p->piece];
         }
     }
+    //to check for endgame return the weights of non ant pieces true if less than 2200 (TUNE THIS)
+    bool endgame = (white_exclude_ants + black_exclude_ants <= 2200);
 
-    bool endgame = (white_no_ant + black_no_ant <= 2200);
 
     for(int row = 0; row < 8; row++)
     {   
@@ -157,7 +194,7 @@ int getScore(const struct gameState* gs)
             {
                 //distance traveled by pawn from starting pos
                 int tilPromo = (p->color == WHITE) ? row : (7 - row);
-                int row_bonus[] = {0, 5, 10, 20, 35, 55, 80, 120};
+                int row_bonus[] = {0, 10, 25, 50, 100, 200, 350, 500};
 
                 if (tilPromo < 0) tilPromo = 0;
                 if (tilPromo > 7) tilPromo = 7;
@@ -248,6 +285,55 @@ int getScore(const struct gameState* gs)
         }
     }
 
+    //penalize hanging
+    //loop through board
+    for(int row = 0; row < 8; row++)
+    {
+        for(int col = 0; col < 10; col++)
+        {
+            struct piece* p = gs->board[row][col]; //find the piece
+            if (!p || p->piece == KING) continue; //skip empty squares and king (offloaded to kingsafety fxn)
+
+            //find if the square can be attacked by opponent
+            enum pieceColor opponent = (p->color == WHITE) ? BLACK : WHITE;
+            //if the square can be attacked
+            if (isSquareAttackedBy((struct piece* (*)[10])gs->board, row, col, opponent))
+            {
+                //is defended is false
+                bool isDefended = false;
+                
+                //check adjacent squares
+                for(int deltaRow = -1; deltaRow <= 1 && !isDefended; deltaRow++)
+                {
+                    for(int deltaCol = -1; deltaCol <= 1 && !isDefended; deltaCol++)
+                    {
+                        if (deltaRow == 0 && deltaCol == 0) continue;
+                        int checkRow = row + deltaRow;
+                        int checkCol = col + deltaCol;
+                        if (checkRow >= 0 && checkRow < 8 && checkCol >= 0 && checkCol < 10)
+                        {
+                            //look for friendly pieces
+                            struct piece* defender = gs->board[checkRow][checkCol];
+                            if (defender && defender->color == p->color)
+                            {
+                                //assume the friendly piece can defend, may or may not be able to
+                                isDefended = true;
+                            }
+                        }
+                    }
+                }
+
+                //if no friendly pieces detected, assign as hanging
+                if (!isDefended)
+                {
+                    //reduce the square by 1/4 if hanging
+                    int penalty = weight[p->piece] / 4;
+                    score += (p->color == WHITE) ? -penalty : penalty;
+                }
+            }
+        }
+    }
+
     //encourage having more legal moves available
     int whiteMobility = getMobility(gs, WHITE);
     int blackMobility = getMobility(gs, BLACK);
@@ -255,6 +341,54 @@ int getScore(const struct gameState* gs)
 
     // return relative to side to move
     return (gs->currentPlayer == WHITE) ? score : -score;
+}
+
+//store the position to the t_table
+static void storeTT(uint64_t hash, int score, int depth, int flag)
+{
+    //keep shared bits and assign as index
+    unsigned int i = hash % TT_SIZE;
+    //store metadata within that specific index
+    tt[i] = (struct TTEntry){hash, score, depth, flag};
+}
+
+//look up function for t_table (basic implementation from chess programming)
+static bool lookupTT(uint64_t hash, int depth, int alpha, int beta, int* score)
+{
+    //go where it might be stored
+    unsigned int i = hash % TT_SIZE;
+    struct TTEntry* entry = &tt[i];
+    
+    //check the position and depth
+    if (entry->hash != hash || entry->depth < depth)
+        return false;
+    
+    //case : this path was evaluated before so the score is the exact same
+    if (entry->flag == TT_FLAG_EXACT)
+    {
+        *score = entry->score;
+        return true;
+    }
+    //case : raise the alpha, as score was atleast this value
+    else if (entry->flag == TT_FLAG_LOWER)
+    {
+        alpha = (entry->score > alpha) ? entry->score : alpha;
+    }
+    //case : score was lower than this, so need to lower beta
+    else if (entry->flag == TT_FLAG_UPPER)
+    {
+        beta = (entry->score < beta) ? entry->score : beta;
+    }
+    
+    //at some point, the correct path would be bounded
+    if (alpha >= beta)
+    {
+        *score = entry->score;
+        return true;
+    }
+    
+    //did not reduce the bounds, go back to normal search
+    return false;
 }
 
 int negaMax(struct gameState* gs, int depth, int alpha, int beta)
@@ -269,6 +403,12 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
             stop_search = true;
     }
     if (stop_search) return 0;
+
+    //always check the t_table before running this to exit earlier
+    uint64_t posHash = positionHash(gs);
+    int ttScore;
+    if (lookupTT(posHash, depth, alpha, beta, &ttScore))
+        return ttScore;
 
     int moveCount = 0;
     uint32_t moves[MAX_MOVES];
@@ -342,6 +482,17 @@ int negaMax(struct gameState* gs, int depth, int alpha, int beta)
         else return 0;  //stalemate
     }
 
+    //store score, depth, flag(as bounds)
+    int flag;
+    if (bestScore <= alpha)
+        flag = TT_FLAG_UPPER;
+    else if (bestScore >= beta)
+        flag = TT_FLAG_LOWER;
+    else
+        flag = TT_FLAG_EXACT;
+    
+    storeTT(posHash, bestScore, depth, flag);
+    
     return bestScore;
 }
 
@@ -482,6 +633,7 @@ void movePiece_Computer(struct gameState* gs, int difficulty)
     uint32_t bestMove = findBestMove(gs, depth);
     if (bestMove == 0) return;
     applyMove(gs, bestMove, NULL);
+    storePositionHash(gs);
 }
 
 int MVV_LVA(const struct gameState* gs, uint32_t move, int depth)
@@ -720,4 +872,114 @@ bool isPromotion(uint32_t move)
         flags == MOVE_PROMO_KNIGHT ||
         flags == MOVE_PROMO_ANTEATER
     );
+}
+
+//zobrist[row][col][pieceType]
+static uint64_t zobrist[8][10][14];
+static bool z_isInit = false;
+
+static void initZ()
+{
+    //if initialized, stop
+    if (z_isInit) return;
+    
+    //loop through the board
+    for (int row = 0; row < 8; row++)
+        for (int col = 0; col < 10; col++)
+            //loop through the piece
+            for (int piece = 0; piece < 14; piece++)
+                //generate a 64 bit number to represent the current board position
+                //note* rand had to be run on 2 different 32 bit numbers because it has a limit of 31 effective bits
+                //effectively places a 62 bit int into the table (still more than enough to represent)
+                //large to avoid collisions
+                zobrist[row][col][piece] = ((uint64_t)rand() << 32) | (uint64_t)rand();
+
+    z_isInit = true;
+}
+
+//standard zorbrist hash funciton, necessary to check for repetitions and transposition table if needed
+static uint64_t positionHash(const struct gameState* gs)
+{
+    if (!z_isInit) initZ();
+    
+    uint64_t hash = 0;
+
+    //loop through the board
+    for (int row = 0; row < 8; row++)
+    {
+        for (int col = 0; col < 10; col++)
+        {   
+            //find pieces, if it exists
+            struct piece* p = gs->board[row][col];
+            if (!p) continue;   //if not a piece, exit
+
+            //further encode according to color
+            //each piece gets 2 slots
+            //ex : black ant vs white ant, WHITE is 1, BLACK is 0
+            //doing p->piece * 2 + 0/1 allows an easy encode and allows the use of 3d array instead of 4d
+            int encodeColor = p->piece * 2 + p->color;
+
+            //xor allows lightweight switch (according to chess programming wiki)
+            hash ^= zobrist[row][col][encodeColor];
+            
+        }
+    }
+
+    //add the side to move
+    if (gs->currentPlayer == BLACK)
+        //apparently good number for cache?
+        hash ^= 0x9e3779b97f4a7c15ULL;
+
+    //castling rights
+    if (gs->whiteKingMoved) hash ^= 0x1;
+    if (gs->blackKingMoved) hash ^= 0x2;
+    if (gs->whiteRookMovedQS) hash ^= 0x4;
+    if (gs->whiteRookMovedKS) hash ^= 0x8;
+    if (gs->blackRookMovedQS) hash ^= 0x10;
+    if (gs->blackRookMovedKS) hash ^= 0x20;
+
+    //en passant
+    if (gs->enPassantCol >= 0 && gs->enPassantCol < 10)
+        hash ^= ((uint64_t)gs->enPassantCol << 32);
+
+    return hash;
+}
+
+bool isThreeFoldDraw(uint64_t hash, int curPly)
+{
+    int repetitions = 0;
+
+    //loop through until it reachs the current half move
+    for (int i = 0; i < curPly; i++)
+    {
+        //incremenet repeitions as you go
+        if (HASHES[i] == hash)
+        {
+            repetitions++;
+            
+            //threefold draw condition
+            if (repetitions >= 2)
+                return true;
+        }
+    }
+
+    return false;
+}
+
+// Store the current position hash in the history
+void storePositionHash(const struct gameState* gs)
+{
+    if (currentPly < MAX_DEPTH)
+    {
+        //hash the current move and increment the counter
+        HASHES[currentPly] = positionHash(gs);
+        currentPly++;
+    }
+}
+
+//reset for new games
+void resetRepetitionTracking()
+{
+    currentPly = 0;
+    memset(HASHES, 0, sizeof(HASHES));
 }
