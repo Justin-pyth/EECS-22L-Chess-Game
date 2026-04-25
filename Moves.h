@@ -49,24 +49,33 @@ struct MoveUndo {
     bool whiteRookMovedQS, whiteRookMovedKS;
     bool blackRookMovedQS, blackRookMovedKS;
     int  enPassantCol, enPassantRow;
-    int  halfMove_count;
+    int  halfMove_count, fullMove_count;
     int  promotionCount;
 };
 
 /* ── Bit-packed Move encode / decode ────────────────────────────────── */
 static inline uint32_t createMove(int fromRow, int fromCol,
-                                   int toRow,   int toCol, int flags) {
+                                  int toRow,   int toCol, int flags) {
     return (uint32_t)(fromRow)        |
            (uint32_t)(fromCol) << 4   |
            (uint32_t)(toRow)   << 8   |
            (uint32_t)(toCol)   << 12  |
            (uint32_t)(flags)   << 16;
 }
+static inline uint32_t createAnteaterMove(int fromRow, int fromCol,
+                                          int toRow,   int toCol,
+                                          int eatRow,  int eatCol) {
+    return createMove(fromRow, fromCol, toRow, toCol, MOVE_ANTEATING) |
+           (uint32_t)(eatRow) << 20 |
+           (uint32_t)(eatCol) << 24;
+}
 static inline int getFromRow(uint32_t move) { return  move        & 0xF; }
 static inline int getFromCol(uint32_t move) { return (move >>  4) & 0xF; }
 static inline int getToRow  (uint32_t move) { return (move >>  8) & 0xF; }
 static inline int getToCol  (uint32_t move) { return (move >> 12) & 0xF; }
-static inline int getFlags  (uint32_t move) { return (move >> 16);       }
+static inline int getFlags  (uint32_t move) { return (move >> 16) & 0xF; }
+static inline int getEatRow (uint32_t move) { return (move >> 20) & 0xF; }
+static inline int getEatCol (uint32_t move) { return (move >> 24) & 0xF; }
 
 /* ── Function declarations ──────────────────────────────────────────── */
 
@@ -100,6 +109,5 @@ void getKnightMoves  (struct piece* board[8][10], int row, int col, uint32_t* mo
 void getRookMoves    (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
 void getQueenMoves   (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
 void getKingMoves    (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
-void getAnteaterMoves(struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
 
 #endif /* MOVES_H */

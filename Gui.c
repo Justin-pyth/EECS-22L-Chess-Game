@@ -755,6 +755,7 @@ static void onUndoClicked(GtkButton* btn, gpointer data) {
     for (int i = 0; i < pliesToUndo && app.undoDepth > 0; i++) {
         app.undoDepth--;
         undoMove(&app.gs, &app.undoStack[app.undoDepth]);
+        popPositionHash();
     }
 
     /* Remove last log line(s) */

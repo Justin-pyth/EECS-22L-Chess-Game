@@ -5,9 +5,8 @@ static uint64_t zobrist[8][10][14];
 static bool z_isInit = false;
 
 extern bool wouldLeaveKingInCheck(struct piece* board[8][10],
-                                  int fromRow, int fromCol,
-                                  int toRow,   int toCol,
-                                  enum pieceColor color, bool isEnPassant);
+                                  uint32_t move,
+                                  enum pieceColor color);
 
 uint64_t HASHES[MAX_REPETITION_HISTORY];
 int currentPly = 0;
@@ -59,9 +58,8 @@ static bool hasLegalEnPassant(const struct gameState* gs)
             continue;
 
         if (!wouldLeaveKingInCheck((struct piece* (*)[10])gs->board,
-                                   fromRow, fromCol,
-                                   toRow, gs->enPassantCol,
-                                   gs->currentPlayer, true))
+                                   createMove(fromRow, fromCol, toRow, gs->enPassantCol, MOVE_EN_PASSANT),
+                                   gs->currentPlayer))
             return true;
     }
 
@@ -143,6 +141,15 @@ void storePositionHash(const struct gameState* gs)
         //hash the current move and increment the counter
         HASHES[currentPly] = positionHash(gs);
         currentPly++;
+    }
+}
+
+void popPositionHash(void)
+{
+    if (currentPly > 0)
+    {
+        currentPly--;
+        HASHES[currentPly] = 0;
     }
 }
 

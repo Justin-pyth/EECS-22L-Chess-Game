@@ -25,7 +25,7 @@ LIBS    = -lm
 GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS   = $(shell pkg-config --libs gtk+-3.0)
 
-HEADERS = types.h Moves.h Eval.h Hash.h TT.h Engine.h
+HEADERS = types.h Moves.h Ant.h Eval.h Hash.h TT.h Engine.h
 
 .PHONY: all chess_gui chess_term clean
 
@@ -34,18 +34,18 @@ all: chess_gui
 # ── GUI build ─────────────────────────────────────────────────────────────────
 # Uses core.c (Chess.c with main() behind #ifndef GUI_BUILD).
 # gui.c provides the GTK3 entry point.
-chess_gui: Gui.c Core.c Moves.c Eval.c Hash.c TT.c Engine.c $(HEADERS)
+chess_gui: Gui.c Core.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c $(HEADERS)
 	$(CC) $(CFLAGS) -DGUI_BUILD $(GTK_CFLAGS) \
-	    Gui.c Core.c Moves.c Eval.c Hash.c TT.c Engine.c \
+	    Gui.c Core.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c \
 	    -o chess_gui \
 	    $(GTK_LIBS) $(LIBS)
 
 # ── Terminal build ────────────────────────────────────────────────────────────
 # Uses the original Chess.c unchanged.
-chess_term: Chess.c Moves.c Eval.c Hash.c TT.c Engine.c terminalTestingFunctions.c $(HEADERS) terminalTestingFunctions.h
+chess_term: Chess.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c terminalTestingFunctions.c $(HEADERS) terminalTestingFunctions.h
 	$(CC) $(CFLAGS) \
 	    -o chess_term \
-	    Chess.c Moves.c Eval.c Hash.c TT.c Engine.c terminalTestingFunctions.c \
+	    Chess.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c terminalTestingFunctions.c \
 	    $(LIBS)
 	@echo "► chess_term built successfully."
 

@@ -1,12 +1,12 @@
 #include "Moves.h"
+#include "Ant.h"
 #include <stdlib.h>
 #include <string.h>
 
 extern bool isKingInCheck(struct piece* board[8][10], enum pieceColor color);
 extern bool wouldLeaveKingInCheck(struct piece* board[8][10],
-                                   int fromRow, int fromCol,
-                                   int toRow,   int toCol,
-                                   enum pieceColor color, bool isEnPassant);
+                                  uint32_t move,
+                                  enum pieceColor color);
 extern bool isCastlingValid(struct piece* board[8][10], enum pieceColor color,
                              bool kingSide, struct gameState* state);
 extern struct piece* allocatePromotion(enum pieceType type, enum pieceColor color);
@@ -207,53 +207,6 @@ void getKingMoves(struct piece* board[8][10], int row, int col, uint32_t* moves,
     }
 }
 
-/*
-    getAnteaterMoves
-    Returns all possible moves that a given Anteater piece can make
-*/
-void getAnteaterMoves(struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount)
-{
-    struct piece* p = board[row][col];
-    *moveCount = 0;
-    enum pieceColor opp = (p->color == WHITE) ? BLACK : WHITE;
-
-    for (int dr = -1; dr <= 1; dr++) 
-    {
-        for (int dc = -1; dc <= 1; dc++) 
-        {
-            if (dr == 0 && dc == 0) continue;
-            int r = row + dr, c = col + dc;
-            if (r >= 0 && r < 8 && c >= 0 && c < 10 && board[r][c] == NULL)
-                moves[(*moveCount)++] = createMove(row, col, r, c, MOVE_NORMAL);
-        }
-    }
-    for (int dr = -1; dr <= 1; dr++) 
-    {
-        for (int dc = -1; dc <= 1; dc++) 
-        {
-            if (dr == 0 && dc == 0) continue;
-            int r = row + dr, c = col + dc;
-            if (r < 0 || r >= 8 || c < 0 || c >= 10) continue;
-            if (!board[r][c] || board[r][c]->piece != ANT ||
-                board[r][c]->color != opp) continue;
-                moves[(*moveCount)++] = createMove(row, col, r, c, MOVE_ANTEATING);
-            int edirs[4][2] = {{0,1},{0,-1},{1,0},{-1,0}};
-            
-            for (int d = 0; d < 4; d++) 
-            {
-                int nr = r + edirs[d][0], nc = c + edirs[d][1];
-                while (nr >= 0 && nr < 8 && nc >= 0 && nc < 10 &&
-                       board[nr][nc] && board[nr][nc]->piece == ANT &&
-                       board[nr][nc]->color == opp) 
-                {
-                    moves[(*moveCount)++] = createMove(row, col, nr, nc, MOVE_ANTEATING);
-                    nr += edirs[d][0]; nc += edirs[d][1];
-                }
-            }
-        }
-    }
-}
-
 /*  getPseudoLegalMoves — calls get*Moves, converts results, appends special moves */
 
 void getPseudoLegalMoves(struct gameState* gs, Move* moves, int* moveCount)
@@ -302,7 +255,7 @@ void getPseudoLegalMoves(struct gameState* gs, Move* moves, int* moveCount)
 
                 // anteater eating flag
                 if (p->piece == ANTEATER && flags == MOVE_ANTEATING) {
-                    moves[(*moveCount)++] = createMove(fr, fc, tr, tc, MOVE_ANTEATING);
+                    moves[(*moveCount)++] = raw[i];
                     continue;
                 }
 
@@ -347,14 +300,8 @@ void getMoves(struct gameState* gs, Move* moves, int* moveCount)
     //iterate through the list of psuedo legal moves
     for (int i = 0; i < cnt; i++) 
     {
-        //fetch the following:
-        int fr = getFromRow(pseudoMoves[i]), fc = getFromCol(pseudoMoves[i]);
-        int tr = getToRow  (pseudoMoves[i]), tc = getToCol  (pseudoMoves[i]);
-        int flags = getFlags(pseudoMoves[i]);
-        bool isEnPassant = (flags == MOVE_EN_PASSANT);
-
         //if that move doesn't leave king in check, LEGAL
-        if (!wouldLeaveKingInCheck(gs->board, fr, fc, tr, tc, color, isEnPassant))
+        if (!wouldLeaveKingInCheck(gs->board, pseudoMoves[i], color))
             moves[(*moveCount)++] = pseudoMoves[i];
     }
 }
@@ -374,6 +321,7 @@ static void saveUndo(const struct gameState* gs, struct MoveUndo* u)
     u->enPassantCol     = gs->enPassantCol;
     u->enPassantRow     = gs->enPassantRow;
     u->halfMove_count   = gs->halfMove_count;
+    u->fullMove_count   = gs->fullMove_count;
     u->promotionCount   = getPromotionCount();
 }
 
@@ -392,6 +340,7 @@ void undoMove(struct gameState* gs, const struct MoveUndo* u)
     gs->enPassantCol     = u->enPassantCol;
     gs->enPassantRow     = u->enPassantRow;
     gs->halfMove_count   = u->halfMove_count;
+    gs->fullMove_count   = u->fullMove_count;
     setPromotionCount(u->promotionCount);
 }
 
@@ -462,18 +411,24 @@ void applyMove(struct gameState* gs, Move m, struct MoveUndo* u)
             break;
         }
         case MOVE_ANTEATING: {
-            gs->board[tr][tc] = moving;
-            gs->board[fr][fc] = NULL;
-            int dr = (tr > fr) ? 1 : (tr < fr) ? -1 : 0;
-            int dc = (tc > fc) ? 1 : (tc < fc) ? -1 : 0;
-            for (int row = fr + dr, col = fc + dc;
-                (row != tr || col != tc) && row >= 0 && row < 8 && col >= 0 && col < 10;
-                row += dr, col += dc) {
-                if (gs->board[row][col] && gs->board[row][col]->piece == ANT) {
+            int eatRow = getEatRow(m);
+            int eatCol = getEatCol(m);
+            struct location path[80];
+            int pathCount = 0;
+
+            if (buildAnteaterPath(gs->board, fr, fc, eatRow, eatCol, tr, tc, color, path, &pathCount))
+            {
+                for (int i = 0; i < pathCount; i++)
+                {
+                    int row = path[i].row;
+                    int col = path[i].col;
                     decrementAntCount(gs, gs->board[row][col]);
                     gs->board[row][col] = NULL;
                 }
             }
+
+            gs->board[tr][tc] = moving;
+            gs->board[fr][fc] = NULL;
             isCapture = true;
             break;
 }
