@@ -8,7 +8,6 @@
 #define MAX_MOVES 1024
 #define MAX_DEPTH 64
 #define SEARCH_STACK_SIZE 512
-#define ASPIRATION_WINDOW 50
 
 
 #include "Moves.h"
