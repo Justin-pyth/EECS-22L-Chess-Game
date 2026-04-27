@@ -44,39 +44,50 @@ struct location {
 struct MoveUndo {
     struct piece*   board[8][10];
     enum pieceColor currentPlayer;
+    int  whiteAntCount, blackAntCount;
     bool whiteKingMoved, blackKingMoved;
     bool whiteRookMovedQS, whiteRookMovedKS;
     bool blackRookMovedQS, blackRookMovedKS;
     int  enPassantCol, enPassantRow;
-    int  halfMove_count;
+    int  halfMove_count, fullMove_count;
+    int  promotionCount;
 };
 
 /* ── Bit-packed Move encode / decode ────────────────────────────────── */
 static inline uint32_t createMove(int fromRow, int fromCol,
-                                   int toRow,   int toCol, int flags) {
+                                  int toRow,   int toCol, int flags) {
     return (uint32_t)(fromRow)        |
            (uint32_t)(fromCol) << 4   |
            (uint32_t)(toRow)   << 8   |
            (uint32_t)(toCol)   << 12  |
            (uint32_t)(flags)   << 16;
 }
+static inline uint32_t createAnteaterMove(int fromRow, int fromCol,
+                                          int toRow,   int toCol,
+                                          int eatRow,  int eatCol) {
+    return createMove(fromRow, fromCol, toRow, toCol, MOVE_ANTEATING) |
+           (uint32_t)(eatRow) << 20 |
+           (uint32_t)(eatCol) << 24;
+}
 static inline int getFromRow(uint32_t move) { return  move        & 0xF; }
 static inline int getFromCol(uint32_t move) { return (move >>  4) & 0xF; }
 static inline int getToRow  (uint32_t move) { return (move >>  8) & 0xF; }
 static inline int getToCol  (uint32_t move) { return (move >> 12) & 0xF; }
-static inline int getFlags  (uint32_t move) { return (move >> 16);       }
-
-/* combined from/to accessors used by Engine.c */
-static inline int getFrom(uint32_t move) { return  move        & 0xFF; }
-static inline int getTo  (uint32_t move) { return (move >>  8) & 0xFF; }
-static inline int getRow (int pos)       { return  pos         & 0xF;  }
-static inline int getCol (int pos)       { return (pos >>  4)  & 0xF;  }
+static inline int getFlags  (uint32_t move) { return (move >> 16) & 0xF; }
+static inline int getEatRow (uint32_t move) { return (move >> 20) & 0xF; }
+static inline int getEatCol (uint32_t move) { return (move >> 24) & 0xF; }
 
 /* ── Function declarations ──────────────────────────────────────────── */
 
 /* Primary move generator — fills moves[] with all legal moves for the
    current player and sets *moveCount.                                  */
 void getMoves(struct gameState* gs, Move* moves, int* moveCount);
+
+/* Pseudolegal move generator — excludes self-check filtering.         */
+void getPseudoLegalMoves(struct gameState* gs, Move* moves, int* moveCount);
+
+/* Returns true if the given color's king is in check.                 */
+bool isColorInCheck(const struct gameState* gs, enum pieceColor color);
 
 /* Returns true if the current player's king is in check.              */
 bool inCheck(const struct gameState* gs);
@@ -92,12 +103,11 @@ bool isLegalMove(struct move moveMade, const struct gameState* gs);
 
 /* Per-piece struct-move generators (used by UI / display code).
    Caller must free() the returned array.                               */
-struct move* getAntMoves     (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getBishopMoves  (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getKnightMoves  (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getRookMoves    (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getQueenMoves   (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getKingMoves    (struct piece* board[8][10], int row, int col, int* moveCount);
-struct move* getAnteaterMoves(struct piece* board[8][10], int row, int col, int* moveCount);
+void getAntMoves     (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getBishopMoves  (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getKnightMoves  (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getRookMoves    (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getQueenMoves   (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
+void getKingMoves    (struct piece* board[8][10], int row, int col, uint32_t* moves, int* moveCount);
 
 #endif /* MOVES_H */

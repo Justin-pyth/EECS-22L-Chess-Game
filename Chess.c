@@ -6,6 +6,7 @@
 #include "terminalTestingFunctions.h"
 #include "Engine.h"
 #include "Moves.h"
+#include "Ant.h"
 
 
     //isValidMove is declared in terminalTestingFunctions.h               
@@ -13,9 +14,26 @@
 
     int moveNumber = 1;
 
+    int timedMoves = 0;
+    double totalTime = 0.0;
+
+    void printStats(double totalTime, int timedMoves, int totalNodes)
+    {
+        if (timedMoves == 0) return;
+            printf("AverageTime: %.3f , TotalMoves: %d , AverageNodes: %d\n", totalTime / timedMoves, timedMoves, totalNodes / timedMoves);
+    }
+
     //Promotion piece pool — up to 40 promotions per game                 
     static struct piece promotionPool[40];
     static int promotionCount = 0;
+
+    int getPromotionCount(void) {
+        return promotionCount;
+    }
+
+    void setPromotionCount(int count) {
+        promotionCount = count;
+    }
 
     // Board / state initialisation                                         
     void initializeBoard(struct piece* board[8][10]) {
@@ -58,6 +76,13 @@
     }
 
     void initGameState(struct gameState* state) {
+        setPromotionCount(0);
+        moveNumber            = 1;
+        timedMoves            = 0;
+        totalTime             = 0.0;
+        nodeCount             = 0;
+        state->whiteAntCount    = 10;
+        state->blackAntCount    = 10;
         state->whiteKingMoved   = false;
         state->blackKingMoved   = false;
         state->whiteRookMovedQS = false;
@@ -69,6 +94,7 @@
         state->currentPlayer    = WHITE;
         state->halfMove_count   = 0;
         state->fullMove_count   = 1;
+        memset(&state->move_log, 0, sizeof(state->move_log));
     }
 
     //HELPER FUNCTIONS
@@ -180,17 +206,55 @@
      * advanced on the previous turn.
      */
     bool wouldLeaveKingInCheck(struct piece* board[8][10],
-                               int fromRow, int fromCol,
-                               int toRow,   int toCol,
-                               enum pieceColor color,
-                               bool isEnPassant) {
+                               uint32_t move,
+                               enum pieceColor color) {
+        int fromRow = getFromRow(move);
+        int fromCol = getFromCol(move);
+        int toRow = getToRow(move);
+        int toCol = getToCol(move);
+        int flags = getFlags(move);
+        bool isEnPassant = (flags == MOVE_EN_PASSANT);
+        bool isAnteating = (flags == MOVE_ANTEATING);
+        bool isCastleKS = (flags == MOVE_CASTLE_KS);
+        bool isCastleQS = (flags == MOVE_CASTLE_QS);
         struct piece* moving   = board[fromRow][fromCol];
         struct piece* captured = board[toRow][toCol];
         struct piece* epPawn   = NULL;
+        struct piece* rook     = NULL;
+        int rookFromCol = -1, rookToCol = -1;
+        struct location removed[10];
+        struct piece* removedPieces[10];
+        int removedCount = 0;
 
         if (isEnPassant) {
             epPawn = board[fromRow][toCol];
             board[fromRow][toCol] = NULL;
+        }
+        if (isAnteating) {
+            int eatRow = getEatRow(move);
+            int eatCol = getEatCol(move);
+            struct location path[80];
+            int pathCount = 0;
+
+            if (!buildAnteaterPath(board, fromRow, fromCol, eatRow, eatCol, toRow, toCol, color, path, &pathCount))
+                return true;
+
+            for (int i = 0; i < pathCount; i++) {
+                int row = path[i].row;
+                int col = path[i].col;
+                removed[removedCount] = (struct location){row, col};
+                removedPieces[removedCount] = board[row][col];
+                board[row][col] = NULL;
+                removedCount++;
+            }
+            captured = NULL;
+        }
+        if (isCastleKS || isCastleQS) {
+            rookFromCol = isCastleKS ? 9 : 0;
+            rookToCol = isCastleKS ? 6 : 4;
+            rook = board[fromRow][rookFromCol];
+            board[fromRow][rookFromCol] = NULL;
+            board[fromRow][rookToCol] = rook;
         }
         board[toRow][toCol]     = moving;
         board[fromRow][fromCol] = NULL;
@@ -199,7 +263,13 @@
 
         board[fromRow][fromCol] = moving;
         board[toRow][toCol]     = captured;
+        if (isCastleKS || isCastleQS) {
+            board[fromRow][rookToCol] = NULL;
+            board[fromRow][rookFromCol] = rook;
+        }
         if (isEnPassant) board[fromRow][toCol] = epPawn;
+        for (int i = 0; i < removedCount; i++)
+            board[removed[i].row][removed[i].col] = removedPieces[i];
 
         return inCheck;
     }
@@ -259,22 +329,30 @@
         if (isKingInCheck(board, color)) return false;
 
         // King must not pass through or land on an attacked square.
-        // Simulate the king at each square from kingCol+step through kingDestCol.
         enum pieceColor opp    = (color == WHITE) ? BLACK : WHITE;
         struct piece*   kPiece = board[row][kingCol];
+        int transitCol = kingCol + step;
 
-        for (int c = kingCol + step; c != kingDestCol + step; c += step) {
-            struct piece* orig  = board[row][c];
-            board[row][kingCol] = NULL;
-            board[row][c]       = kPiece;
+        board[row][kingCol] = NULL;
+        board[row][transitCol] = kPiece;
+        bool transitAttacked = isSquareAttackedBy(board, row, transitCol, opp);
+        board[row][transitCol] = NULL;
+        board[row][kingCol] = kPiece;
+        if (transitAttacked) return false;
 
-            bool attacked = isSquareAttackedBy(board, row, c, opp);
+        int rookToCol = kingSide ? 6 : 4;
+        struct piece* rook = board[row][rookCol];
 
-            board[row][c]       = orig;
-            board[row][kingCol] = kPiece;
-
-            if (attacked) return false;
-        }
+        board[row][kingCol] = NULL;
+        board[row][rookCol] = NULL;
+        board[row][kingDestCol] = kPiece;
+        board[row][rookToCol] = rook;
+        bool destAttacked = isSquareAttackedBy(board, row, kingDestCol, opp);
+        board[row][kingDestCol] = NULL;
+        board[row][rookToCol] = NULL;
+        board[row][kingCol] = kPiece;
+        board[row][rookCol] = rook;
+        if (destAttacked) return false;
 
         return true;
     }
@@ -311,7 +389,11 @@
 
     
 
-    //Game State
+    //check the specific color, to prevent errors in between applying and undoing a move
+    bool isColorInCheck(const struct gameState* gs, enum pieceColor color) {
+        return isKingInCheck((struct piece*(*)[10])gs->board, color);
+    }
+
     bool isKingInCheck(struct piece* board[8][10], enum pieceColor color) {
         int kingRow, kingCol;
         if (!findKing(board, color, &kingRow, &kingCol)) return false;
@@ -375,7 +457,10 @@ int main(void) {
     srand(time(NULL));
     struct gameState state;
     initGameState(&state);
+    resetRepetitionTracking();
+    clearTT();
     initializeBoard(state.board);
+    storePositionHash(&state);
 
     /* [REMOVE WHEN GUI ADDED] — terminal game-mode and difficulty prompts */
     enum gameMode mode = promptGameMode();
@@ -419,14 +504,19 @@ int main(void) {
             Move chosen = getHumanMove(&state);
             if (!chosen) { printf("\nNo input — game ended.\n"); break; }
             applyMove(&state, chosen, NULL);
+            storePositionHash(&state);
         } else {
 
 
             /* [REMOVE WHEN GUI ADDED] — keep movePiece_Computer, remove printf */
             printf("\n%s's turn (AI). Thinking...\n", colorName);
 
-
+            clock_t start = clock();
             movePiece_Computer(&state, aiDifficulty);
+            clock_t end = clock();
+            totalTime += (double)(end - start) / CLOCKS_PER_SEC;
+            timedMoves++;
+            printf("MoveTime: %.3f seconds\n", (double)(end - start) / CLOCKS_PER_SEC);
         }
 
         if (state.currentPlayer == BLACK) moveNumber++;
@@ -444,7 +534,7 @@ int main(void) {
             /* [REMOVE WHEN GUI ADDED] — replace with GUI game-over signal */
             printf("\nCheckmate! %s wins.\n", winner);
 
-
+            printStats(totalTime, timedMoves, nodeCount);
             break;
         }
         if (isStalemate(&state)) {
@@ -453,7 +543,7 @@ int main(void) {
             /* [REMOVE WHEN GUI ADDED] */
             printf("\nStalemate! Draw.\n");
 
-
+            printStats(totalTime, timedMoves, nodeCount);
             break;
         }
         if (state.halfMove_count >= 100) {
@@ -462,7 +552,16 @@ int main(void) {
             /* [REMOVE WHEN GUI ADDED] */
             printf("\nDraw by fifty-move rule.\n");
 
+            printStats(totalTime, timedMoves, nodeCount);
+            break;
+        }
+        if (isThreeFoldDraw(HASHES[currentPly-1], currentPly)) {
 
+
+            /* [REMOVE WHEN GUI ADDED] */
+            printf("\nDraw by threefold repetition.\n");
+
+            printStats(totalTime, timedMoves, nodeCount);
             break;
         }
         if (hasInsufficientMaterial(state.board)) {
@@ -471,7 +570,7 @@ int main(void) {
             /* [REMOVE WHEN GUI ADDED] */
             printf("\nDraw by insufficient material.\n");
 
-
+            printStats(totalTime, timedMoves, nodeCount);
             break;
         }
     }

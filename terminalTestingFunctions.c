@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include "terminalTestingFunctions.h"
+#include "Ant.h"
 
 extern enum pieceType promptPromotion(void);
 
@@ -159,6 +160,11 @@ Move getHumanMove(struct gameState* gs)
         int fromRow = fr - 1, fromCol = fc - 'a';
         int toRow   = tr - 1, toCol   = tc - 'a';
 
+
+        //needed to detect potential starting ant positions for the start of anteating
+        //multiple start positions introduce ambiguoity, so just use this to pick best path(most ants eaten)
+        Move firstAnt[MAX_MOVES];
+        int firstAntCount = 0;
         for (int i = 0; i < count; i++) {
             if (getFromRow(encoded[i]) == fromRow && getFromCol(encoded[i]) == fromCol &&
                 getToRow  (encoded[i]) == toRow   && getToCol  (encoded[i]) == toCol) {
@@ -176,9 +182,13 @@ Move getHumanMove(struct gameState* gs)
                     }
                     return createMove(fromRow, fromCol, toRow, toCol, pf);
                 }
-                return encoded[i];
+                firstAnt[firstAntCount++] = encoded[i];
             }
         }
+        //when there are more than 1 starting path to destination for ant eating
+        //choose the best path
+        if (firstAntCount > 0)
+            return chooseBestAnteaterMove(gs, firstAnt, firstAntCount);
         return 0;
     }
 }
