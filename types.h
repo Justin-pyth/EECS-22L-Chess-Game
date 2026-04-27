@@ -26,7 +26,8 @@ struct piece {
 typedef uint32_t Move;
 
 struct log {
-    Move move; // encoded move (first 7 bits are fromTile, next 7 bits are toTile)    int piece; // Black or White
+    Move move; // encoded move (first 7 bits are fromTile, next 7 bits are toTile)
+    int piece; // Black or White    int piece; // Black or White
     int moveNumber; // 1-1000 for # of moves in the game
     int history[1000];
 };
