@@ -26,7 +26,7 @@ int HISTORY[8][10][8][10];  //row col row col
 
 //TRACKING VARIABLES AND DEBUG==========================================================================END
 
-
+#define ASPIRATION_WINDOW 50
 
 static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply)
 {
@@ -46,21 +46,18 @@ static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply
     if (isSearchDraw(gs, posHash, ply))
         return 0;
 
-    //store the current position somewhere within search stack
     if (ply > 0 && ply - 1 < SEARCH_STACK_SIZE)
         SEARCH_HASHES[ply - 1] = posHash;
 
-    //return early if the same position was found already in the t_table
     int ttScore;
     if (lookupTT(posHash, depth, alpha, beta, &ttScore, ply))
         return ttScore;
-    //if not found, then need to do regular search below:
 
-    //if on a leaf node, perform q search to avoid "horizon effect"
+    //only use getScore after ensuring no checkmate condition
+    //base condition:
+    //run q-search on leaves, will be expensive, but results in better tactics
     if (depth <= 0) return Quiesce(gs, alpha, beta, ply);
 
-
-    //else gather psuedolegal moves
     int moveCount = 0;
     uint32_t moves[MAX_MOVES];
     //gather all psuedo legal moves
@@ -105,14 +102,14 @@ static int negaMax(struct gameState* gs, int depth, int alpha, int beta, int ply
         if (beta <= alpha)
         {
             //store moves that cause beta-cut off AKA very one-sided move
-            //moves that caused beta-cut off are were avoided completely by the previous player
-            //making them valuable to search first for the current player
+            //so it stores the worst move trees for the previous player, which are the best moves for the current
+            //since sides switch
             if (!isCapture(gs, moves[i])) 
             {
                 K_MOVES[depth][1] = K_MOVES[depth][0];
                 K_MOVES[depth][0] = moves[i];
                 //increment history since a move caused beta-cutoff
-                HISTORY[getFromRow(moves[i])][getFromCol(moves[i])][getToRow(moves[i])][getToCol(moves[i])] += depth * depth; //give higher scores at higher depths, rewarding deeper cutoffs more
+                HISTORY[getFromRow(moves[i])][getFromCol(moves[i])][getToRow(moves[i])][getToCol(moves[i])] += depth * depth; //give higher scores at higher depths
                 //^ a high depth means that it is early on into the tree, a move that is causing beta-cutoff early into the tree is seen as the best move for the next player
             }
             break;
@@ -192,7 +189,6 @@ uint32_t depthSearch(struct gameState* gs, int depth, uint32_t pvMove, int alpha
     bool legalMoveFound = false;
     
     enum pieceColor movingColor = gs->currentPlayer;
-    //for each psuedo legal move
     for(int i = 0 ; i < moveCount; i++)
     {
         struct MoveUndo u;
@@ -249,7 +245,7 @@ uint32_t findBestMove(struct gameState* gs, int depth)
     //reset the time trackers
     stop_search = false;
 
-    //gather all legal moves, if none exist, exit early
+    //always keep a legal fallback move in case the search times out
     uint32_t legalMoves[MAX_MOVES];
     int legalMoveCount = 0;
     getMoves(gs, legalMoves, &legalMoveCount);
@@ -258,7 +254,6 @@ uint32_t findBestMove(struct gameState* gs, int depth)
 
     time_start = get_current_time();
 
-    //fallback move if time runs out before the first depth i searched
     uint32_t bestMove = legalMoves[0];
     uint32_t previousBestMove = bestMove;
     int previousScore = 0;
@@ -270,9 +265,6 @@ uint32_t findBestMove(struct gameState* gs, int depth)
         int beta = INF;
         int score = 0;
 
-        //can narrow a search with aspiration window
-        //ex: depth 4 scores +20, depth 5 window would be [20-50, 20+50] -> [-30, 70]
-        //^ new score should be somewhere close to +20 if searching at a higher depth
         if (i > 1)
         {
             alpha = previousScore - ASPIRATION_WINDOW;
@@ -285,7 +277,7 @@ uint32_t findBestMove(struct gameState* gs, int depth)
         if (stop_search)
             break;
 
-        //if the score was lower than the lower bound or higher than upper bound, need to do another search
+        //if the score fell outside the window, research with the full bounds
         if (i > 1 && (score <= alpha || score >= beta))
         {
             move = depthSearch(gs, i, previousBestMove, -INF, INF, &score);
