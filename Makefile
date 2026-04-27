@@ -24,7 +24,7 @@
 #   GTK+ 3.x dev libraries:
 #     Ubuntu/Debian: sudo apt install libgtk-3-dev
 #     Fedora/RHEL:   sudo dnf install gtk3-devel
-#     macOS:         brew install gtk+3
+#     macOS:         brew install gtk+3  
 # ─────────────────────────────────────────────────────────────────────────────
 
 CC      = gcc
