@@ -378,7 +378,7 @@ static bool hasInsufficientMaterial(struct piece* board[8][10]) {
 /* ───────────────────────────────────────────────────────────────────────────
    Terminal main — compiled only when NOT building the GUI
    ─────────────────────────────────────────────────────────────────────────── */
-#ifndef 0
+#ifndef GUI_BUILD
 
 int main(void) {
     srand(time(NULL));
@@ -441,4 +441,4 @@ int main(void) {
     return 0;
 }
 
-#endif /* MAIN SHOULD ONLY BE IN GUI.C */
+#endif /* GUI_BUILD */
