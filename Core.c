@@ -378,7 +378,7 @@ static bool hasInsufficientMaterial(struct piece* board[8][10]) {
 /* ───────────────────────────────────────────────────────────────────────────
    Terminal main — compiled only when NOT building the GUI
    ─────────────────────────────────────────────────────────────────────────── */
-#ifndef 0
+#if 0
 
 int main(void) {
     srand(time(NULL));
