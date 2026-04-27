@@ -23,6 +23,7 @@
 #include "types.h"
 #include "Engine.h"
 #include "Moves.h"
+#include "Ant.h"
 
 #ifndef GUI_BUILD
 #include "terminalTestingFunctions.h"
@@ -187,15 +188,53 @@ bool isSquareAttackedBy(struct piece* board[8][10],
 }
 
 bool wouldLeaveKingInCheck(struct piece* board[8][10],
-                           int fromRow, int fromCol,
-                           int toRow,   int toCol,
-                           enum pieceColor color,
-                           bool isEnPassant) {
+                           uint32_t move,
+                           enum pieceColor color) {
+    int fromRow = getFromRow(move);
+    int fromCol = getFromCol(move);
+    int toRow = getToRow(move);
+    int toCol = getToCol(move);
+    int flags = getFlags(move);
+    bool isEnPassant = (flags == MOVE_EN_PASSANT);
+    bool isAnteating = (flags == MOVE_ANTEATING);
+    bool isCastleKS = (flags == MOVE_CASTLE_KS);
+    bool isCastleQS = (flags == MOVE_CASTLE_QS);
     struct piece* moving   = board[fromRow][fromCol];
     struct piece* captured = board[toRow][toCol];
     struct piece* epPawn   = NULL;
+    struct piece* rook     = NULL;
+    int rookFromCol = -1, rookToCol = -1;
+    struct location removed[10];
+    struct piece* removedPieces[10];
+    int removedCount = 0;
 
     if (isEnPassant) { epPawn = board[fromRow][toCol]; board[fromRow][toCol] = NULL; }
+    if (isAnteating) {
+        int eatRow = getEatRow(move);
+        int eatCol = getEatCol(move);
+        struct location path[80];
+        int pathCount = 0;
+
+        if (!buildAnteaterPath(board, fromRow, fromCol, eatRow, eatCol, toRow, toCol, color, path, &pathCount))
+            return true;
+
+        for (int i = 0; i < pathCount; i++) {
+            int row = path[i].row;
+            int col = path[i].col;
+            removed[removedCount] = (struct location){row, col};
+            removedPieces[removedCount] = board[row][col];
+            board[row][col] = NULL;
+            removedCount++;
+        }
+        captured = NULL;
+    }
+    if (isCastleKS || isCastleQS) {
+        rookFromCol = isCastleKS ? 9 : 0;
+        rookToCol = isCastleKS ? 6 : 4;
+        rook = board[fromRow][rookFromCol];
+        board[fromRow][rookFromCol] = NULL;
+        board[fromRow][rookToCol] = rook;
+    }
     board[toRow][toCol]     = moving;
     board[fromRow][fromCol] = NULL;
 
@@ -203,7 +242,13 @@ bool wouldLeaveKingInCheck(struct piece* board[8][10],
 
     board[fromRow][fromCol] = moving;
     board[toRow][toCol]     = captured;
+    if (isCastleKS || isCastleQS) {
+        board[fromRow][rookToCol] = NULL;
+        board[fromRow][rookFromCol] = rook;
+    }
     if (isEnPassant) board[fromRow][toCol] = epPawn;
+    for (int i = 0; i < removedCount; i++)
+        board[removed[i].row][removed[i].col] = removedPieces[i];
     return inCheck;
 }
 
@@ -229,19 +274,31 @@ bool isCastlingValid(struct piece* board[8][10], enum pieceColor color,
 
     enum pieceColor opp  = (color == WHITE) ? BLACK : WHITE;
     int destCol = kingSide ? 7 : 3;
-    int minC = (kingCol < destCol) ? kingCol : destCol;
-    int maxC = (kingCol < destCol) ? destCol : kingCol;
+    int step = (destCol > kingCol) ? 1 : -1;
     struct piece* kPiece = board[row][kingCol];
+    int transitCol = kingCol + step;
 
-    for (int c = minC; c <= maxC; c++) {
-        board[row][kingCol] = NULL;
-        struct piece* orig  = board[row][c];
-        board[row][c]       = kPiece;
-        bool attacked = isSquareAttackedBy(board, row, c, opp);
-        board[row][c]       = orig;
-        board[row][kingCol] = kPiece;
-        if (attacked) return false;
-    }
+    board[row][kingCol] = NULL;
+    board[row][transitCol] = kPiece;
+    bool transitAttacked = isSquareAttackedBy(board, row, transitCol, opp);
+    board[row][transitCol] = NULL;
+    board[row][kingCol] = kPiece;
+    if (transitAttacked) return false;
+
+    int rookToCol = kingSide ? 6 : 4;
+    struct piece* rook = board[row][rookCol];
+
+    board[row][kingCol] = NULL;
+    board[row][rookCol] = NULL;
+    board[row][destCol] = kPiece;
+    board[row][rookToCol] = rook;
+    bool destAttacked = isSquareAttackedBy(board, row, destCol, opp);
+    board[row][destCol] = NULL;
+    board[row][rookToCol] = NULL;
+    board[row][kingCol] = kPiece;
+    board[row][rookCol] = rook;
+    if (destAttacked) return false;
+
     return true;
 }
 
@@ -321,7 +378,7 @@ static bool hasInsufficientMaterial(struct piece* board[8][10]) {
 /* ───────────────────────────────────────────────────────────────────────────
    Terminal main — compiled only when NOT building the GUI
    ─────────────────────────────────────────────────────────────────────────── */
-#ifndef GUI_BUILD
+#if 0
 
 int main(void) {
     srand(time(NULL));

@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include "Ant.h"
 
 //weight table
 const int weight[7] =
@@ -198,12 +199,6 @@ int getScore(const struct gameState* gs)
                 value += row_bonus[progress];
             }
 
-            //discourage these pieces from staying near their home row
-            if (p->piece == KNIGHT || p->piece == BISHOP || p->piece == ANTEATER)
-            {
-                if (!((p->color == WHITE) ? (row == 0) : (row == 7)))
-                    value += 35;
-            }
 
             if (p->piece == ANTEATER)
             {
@@ -211,8 +206,9 @@ int getScore(const struct gameState* gs)
                 int chainAnt = 0;
                 enum pieceColor opponent_color = (p->color == WHITE) ? BLACK : WHITE;
                 int opponent_ants = (p->color == WHITE) ? gs->blackAntCount : gs->whiteAntCount;
-                value -= (10-opponent_ants)*20; //lower the base value of ant eater by 20 for every ant not on board
-                //basically, near endgame with little pawns, this piece should not be valued high
+                value = 40 + (290 * opponent_ants / 10);; //lower the base value depending on remaining enemy pawns
+                //ex: at 10 pawns, valued at 330, but becomes less than a pawn from 2 remaining ants and lower. (TUNE)
+
 
                 //(deltaR, deltaC) <--- (change in row, change in col)
                 //iterate through all directions aka 1 move in orthogonal or diagonal
@@ -239,21 +235,27 @@ int getScore(const struct gameState* gs)
                             //theres an ant nearby
                             near_Ant++;
 
-                            //scan through chaining
-                            int chainRow = newRow + deltaRow;
-                            int chainCol = newCol + deltaCol;
-                            //while in bounds
-                            while (chainRow >= 0 && chainRow < 8 && chainCol >= 0 && chainCol < 10)
-                            {
-                                struct piece* chainVictim = gs->board[chainRow][chainCol];
-                                if (!chainVictim || chainVictim->piece != ANT || chainVictim->color != opponent_color)
-                                    break;
+                            int edirs[4][2] = {{0,1},{0,-1},{1,0},{-1,0}};
 
-                                //new ant to chain
-                                chainAnt++;
-                                //check next
-                                chainRow += deltaRow;
-                                chainCol += deltaCol;
+                            //scan through chaining
+                            for (int d = 0; d < 4; d++)
+                            {
+                                int chainRow = newRow + edirs[d][0];
+                                int chainCol = newCol + edirs[d][1];
+
+                                //while in bounds
+                                while (chainRow >= 0 && chainRow < 8 && chainCol >= 0 && chainCol < 10)
+                                {
+                                    struct piece* chainVictim = gs->board[chainRow][chainCol];
+                                    if (!chainVictim || chainVictim->piece != ANT || chainVictim->color != opponent_color)
+                                        break;
+
+                                    //new ant to chain
+                                    chainAnt++;
+                                    //check next
+                                    chainRow += edirs[d][0];
+                                    chainCol += edirs[d][1];
+                                }
                             }
                         }
                     }
@@ -266,6 +268,13 @@ int getScore(const struct gameState* gs)
                 //increase value for ability to capture on current turn
                 if (near_Ant > 0)
                     value += 10;
+            }
+
+            //discourage these pieces from staying near their home row
+            if (p->piece == KNIGHT || p->piece == BISHOP || p->piece == ANTEATER)
+            {
+                if (!((p->color == WHITE) ? (row == 0) : (row == 7)))
+                    value += 35;
             }
 
             if (p->piece == KING)

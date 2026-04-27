@@ -10,6 +10,7 @@ extern int currentPly;
 
 uint64_t positionHash(const struct gameState* gs);
 void storePositionHash(const struct gameState* gs);
+void popPositionHash(void);
 void resetRepetitionTracking(void);
 bool isThreeFoldDraw(uint64_t hash, int curPly);
 
