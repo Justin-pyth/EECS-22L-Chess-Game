@@ -388,7 +388,7 @@ static void drawLabels(cairo_t* cr, GtkWidget* widget) {
    Promotion dialog
    ═══════════════════════════════════════════════════════════ */
 static enum pieceType showPromotionDialog(void) {
-    /* Clean approach: pass each button directly to gtk_dialog_new_with_buttons
+    /* Pass each button directly to gtk_dialog_new_with_buttons
        so GTK wires the response ids correctly with no manual re-wiring. */
     GtkWidget* dlg = gtk_dialog_new_with_buttons(
         "Promote Ant — choose a piece",
