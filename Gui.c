@@ -256,8 +256,7 @@ static void redraw(void) {
    Drawing helpers — Unicode chess symbols
    ═══════════════════════════════════════════════════════════ */
 
-/* White piece Unicode: ♔♕♖♗♘♙ | Black: ♚♛♜♝♞♟
-   Anteater: use Ⓐ/ⓐ as a custom stand-in */
+/* Returns NULL for ANTEATER — handled separately by drawPiece */
 static const char* pieceSymbol(enum pieceType t, enum pieceColor c) {
     if (c == WHITE) {
         switch (t) {
@@ -267,7 +266,7 @@ static const char* pieceSymbol(enum pieceType t, enum pieceColor c) {
             case BISHOP:   return "♗";
             case KNIGHT:   return "♘";
             case ANT:      return "♙";
-            case ANTEATER: return "Ⓐ";
+            case ANTEATER: return NULL;   /* drawn by Cairo */
         }
     } else {
         switch (t) {
@@ -277,63 +276,199 @@ static const char* pieceSymbol(enum pieceType t, enum pieceColor c) {
             case BISHOP:   return "♝";
             case KNIGHT:   return "♞";
             case ANT:      return "♟";
-            case ANTEATER: return "ⓐ";
+            case ANTEATER: return NULL;   /* drawn by Cairo */
         }
     }
     return "?";
 }
 
-/* Draw a single square background */
-static void drawSquareBG(cairo_t* cr, int drow, int col,
-                         bool selected, bool legalDest,
-                         bool lastMove, bool inCheck) {
-    double x = col * SQUARE_SIZE;
-    double y = drow * SQUARE_SIZE;
+/* ═══════════════════════════════════════════════════════════
+   Cairo anteater silhouette
+   ═══════════════════════════════════════════════════════════ */
 
-    /* base tile colour */
-    bool light = ((drow + col) % 2 == 0);
-    if (light) cairo_set_source_rgb(cr, COL_LIGHT_SQ);
-    else        cairo_set_source_rgb(cr, COL_DARK_SQ);
-    cairo_rectangle(cr, x, y, SQUARE_SIZE, SQUARE_SIZE);
-    cairo_fill(cr);
+/*
+ * Draw an anteater silhouette using Cairo paths.
+ *
+ * The silhouette is drawn in a normalised 100×100 box then scaled/translated
+ * to fit inside SQUARE_SIZE with a small margin.
+ *
+ * Shape breakdown (all coords in the 100×100 space):
+ *   - Body: a fat ellipse
+ *   - Head: smaller ellipse offset forward
+ *   - Snout: long tapered bezier curving downward
+ *   - Ear: a short pointed spike up from the head
+ *   - Tail: a thick bushy bezier sweeping up and back
+ *   - Legs: four stubby rounded ellipses
+ *   - Eye: small filled circle
+ */
+static void drawAnteaterCairo(cairo_t* cr, double ox, double oy,
+                               double size, enum pieceColor color)
+{
+    /* margin so the sprite doesn't touch square edges */
+    double M  = size * 0.07;
+    double S  = size - 2.0 * M;   /* usable region */
+    double sx = S / 100.0;        /* scale from 100-unit space */
+    double sy = S / 100.0;
 
-    /* overlays */
-    if (inCheck) {
-        cairo_set_source_rgba(cr, COL_CHECK, 0.55);
-        cairo_rectangle(cr, x, y, SQUARE_SIZE, SQUARE_SIZE);
+    /* helper macros — map normalised coords to screen */
+#define X(v)  (ox + M + (v) * sx)
+#define Y(v)  (oy + M + (v) * sy)
+
+    /* ── colour setup ── */
+    double bodyR, bodyG, bodyB;
+    double rimR,  rimG,  rimB;
+    if (color == WHITE) {
+        bodyR = 0.93; bodyG = 0.90; bodyB = 0.82;
+        rimR  = 0.25; rimG  = 0.20; rimB  = 0.12;
+    } else {
+        bodyR = 0.18; bodyG = 0.14; bodyB = 0.10;
+        rimR  = 0.78; rimG  = 0.72; rimB  = 0.60;
+    }
+
+    double lw = size * 0.035;
+    cairo_set_line_width(cr, lw);
+    cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+    cairo_set_line_cap(cr,  CAIRO_LINE_CAP_ROUND);
+
+    /* ─── TAIL (drawn first so body overlaps root) ─── */
+    cairo_save(cr);
+    cairo_set_line_width(cr, size * 0.12);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    cairo_move_to(cr, X(22), Y(52));
+    cairo_curve_to(cr,
+        X(5),  Y(38),
+        X(-5), Y(18),
+        X(12), Y(8));
+    cairo_set_source_rgb(cr, bodyR, bodyG, bodyB);
+    cairo_stroke_preserve(cr);
+    cairo_set_line_width(cr, lw);
+    cairo_set_source_rgb(cr, rimR, rimG, rimB);
+    cairo_stroke(cr);
+    cairo_restore(cr);
+
+    /* ─── LEGS (4 stubby ellipses) ─── */
+    {
+        double legCols[4] = { 30, 43, 57, 70 };
+        for (int i = 0; i < 4; i++) {
+            double lx = legCols[i], ly = 70;
+            double lrx = 4.0, lry = 10.0;
+            cairo_save(cr);
+            cairo_translate(cr, X(lx), Y(ly));
+            cairo_scale(cr, sx * lrx, sy * lry);
+            cairo_arc(cr, 0, 0, 1.0, 0, 2 * G_PI);
+            cairo_restore(cr);
+            cairo_set_source_rgb(cr, bodyR, bodyG, bodyB);
+            cairo_fill_preserve(cr);
+            cairo_set_source_rgb(cr, rimR, rimG, rimB);
+            cairo_set_line_width(cr, lw);
+            cairo_stroke(cr);
+        }
+    }
+
+    /* ─── BODY (fat ellipse) ─── */
+    {
+        cairo_save(cr);
+        cairo_translate(cr, X(50), Y(54));
+        cairo_scale(cr, sx * 34.0, sy * 20.0);
+        cairo_arc(cr, 0, 0, 1.0, 0, 2 * G_PI);
+        cairo_restore(cr);
+        cairo_set_source_rgb(cr, bodyR, bodyG, bodyB);
+        cairo_fill_preserve(cr);
+        cairo_set_source_rgb(cr, rimR, rimG, rimB);
+        cairo_set_line_width(cr, lw);
+        cairo_stroke(cr);
+    }
+
+    /* ─── HEAD (smaller ellipse, forward-right) ─── */
+    {
+        cairo_save(cr);
+        cairo_translate(cr, X(74), Y(46));
+        cairo_scale(cr, sx * 13.0, sy * 10.0);
+        cairo_arc(cr, 0, 0, 1.0, 0, 2 * G_PI);
+        cairo_restore(cr);
+        cairo_set_source_rgb(cr, bodyR, bodyG, bodyB);
+        cairo_fill_preserve(cr);
+        cairo_set_source_rgb(cr, rimR, rimG, rimB);
+        cairo_set_line_width(cr, lw);
+        cairo_stroke(cr);
+    }
+
+    /* ─── EAR (pointed triangle spike) ─── */
+    {
+        cairo_move_to(cr, X(70), Y(38));
+        cairo_line_to(cr, X(73), Y(28));
+        cairo_line_to(cr, X(77), Y(38));
+        cairo_close_path(cr);
+        cairo_set_source_rgb(cr, bodyR, bodyG, bodyB);
+        cairo_fill_preserve(cr);
+        cairo_set_source_rgb(cr, rimR, rimG, rimB);
+        cairo_set_line_width(cr, lw);
+        cairo_stroke(cr);
+    }
+
+    /* ─── SNOUT (long tapered bezier closed path) ─── */
+    {
+        cairo_move_to(cr, X(85), Y(44));
+        cairo_curve_to(cr,
+            X(90), Y(46),
+            X(98), Y(55),
+            X(103), Y(62));
+        cairo_curve_to(cr,
+            X(98), Y(60),
+            X(90), Y(50),
+            X(85), Y(49));
+        cairo_close_path(cr);
+        cairo_set_source_rgb(cr, bodyR, bodyG, bodyB);
+        cairo_fill_preserve(cr);
+        cairo_set_source_rgb(cr, rimR, rimG, rimB);
+        cairo_set_line_width(cr, lw);
+        cairo_stroke(cr);
+    }
+
+    /* ─── EYE ─── */
+    {
+        cairo_arc(cr, X(79), Y(43), sx * 2.5, 0, 2 * G_PI);
+        if (color == WHITE)
+            cairo_set_source_rgb(cr, 0.15, 0.10, 0.05);
+        else
+            cairo_set_source_rgb(cr, 0.92, 0.88, 0.78);
         cairo_fill(cr);
     }
-    if (lastMove) {
-        cairo_set_source_rgba(cr, COL_LASTMOVE, 0.45);
-        cairo_rectangle(cr, x, y, SQUARE_SIZE, SQUARE_SIZE);
-        cairo_fill(cr);
-    }
-    if (selected) {
-        cairo_set_source_rgba(cr, COL_SELECT, 0.60);
-        cairo_rectangle(cr, x, y, SQUARE_SIZE, SQUARE_SIZE);
-        cairo_fill(cr);
-    }
-    if (legalDest) {
-        /* subtle dot */
-        double cx = x + SQUARE_SIZE / 2.0;
-        double cy = y + SQUARE_SIZE / 2.0;
-        cairo_set_source_rgba(cr, COL_LEGAL, 0.70);
-        cairo_arc(cr, cx, cy, SQUARE_SIZE * 0.15, 0, 2 * G_PI);
-        cairo_fill(cr);
-    }
+
+#undef X
+#undef Y
 }
 
-/* Draw piece glyph using Pango */
+/* Draw piece glyph using Pango, or Cairo for the Anteater */
 static void drawPiece(cairo_t* cr, GtkWidget* widget,
                       struct piece* p, int drow, int col) {
     if (!p) return;
-    double x = col * SQUARE_SIZE;
+    double x = col  * SQUARE_SIZE;
     double y = drow * SQUARE_SIZE;
+
+    /* Anteater gets a hand-drawn Cairo silhouette */
+    if (p->piece == ANTEATER) {
+        /* shadow pass */
+        cairo_save(cr);
+        cairo_translate(cr, 1.5, 1.5);
+        cairo_push_group(cr);
+        drawAnteaterCairo(cr, x, y, SQUARE_SIZE, p->color);
+        cairo_pop_group_to_source(cr);
+        cairo_paint_with_alpha(cr, 0.30);
+        cairo_restore(cr);
+        /* actual sprite */
+        drawAnteaterCairo(cr, x, y, SQUARE_SIZE, p->color);
+        return;
+    }
+
+    /* All other pieces — Pango Unicode glyph */
+    const char* sym = pieceSymbol(p->piece, p->color);
+    if (!sym) return;
 
     PangoLayout* layout = gtk_widget_create_pango_layout(widget, NULL);
     PangoFontDescription* fd = pango_font_description_from_string("Segoe UI Symbol 44");
     pango_layout_set_font_description(layout, fd);
-    pango_layout_set_text(layout, pieceSymbol(p->piece, p->color), -1);
+    pango_layout_set_text(layout, sym, -1);
 
     int pw, ph;
     pango_layout_get_pixel_size(layout, &pw, &ph);
@@ -384,12 +519,47 @@ static void drawLabels(cairo_t* cr, GtkWidget* widget) {
     g_object_unref(layout);
 }
 
+/* Draw a single square background */
+static void drawSquareBG(cairo_t* cr, int drow, int col,
+                         bool selected, bool legalDest,
+                         bool lastMove, bool inCheck) {
+    double x = col * SQUARE_SIZE;
+    double y = drow * SQUARE_SIZE;
+
+    bool light = ((drow + col) % 2 == 0);
+    if (light) cairo_set_source_rgb(cr, COL_LIGHT_SQ);
+    else        cairo_set_source_rgb(cr, COL_DARK_SQ);
+    cairo_rectangle(cr, x, y, SQUARE_SIZE, SQUARE_SIZE);
+    cairo_fill(cr);
+
+    if (inCheck) {
+        cairo_set_source_rgba(cr, COL_CHECK, 0.55);
+        cairo_rectangle(cr, x, y, SQUARE_SIZE, SQUARE_SIZE);
+        cairo_fill(cr);
+    }
+    if (lastMove) {
+        cairo_set_source_rgba(cr, COL_LASTMOVE, 0.45);
+        cairo_rectangle(cr, x, y, SQUARE_SIZE, SQUARE_SIZE);
+        cairo_fill(cr);
+    }
+    if (selected) {
+        cairo_set_source_rgba(cr, COL_SELECT, 0.60);
+        cairo_rectangle(cr, x, y, SQUARE_SIZE, SQUARE_SIZE);
+        cairo_fill(cr);
+    }
+    if (legalDest) {
+        double cx = x + SQUARE_SIZE / 2.0;
+        double cy = y + SQUARE_SIZE / 2.0;
+        cairo_set_source_rgba(cr, COL_LEGAL, 0.70);
+        cairo_arc(cr, cx, cy, SQUARE_SIZE * 0.15, 0, 2 * G_PI);
+        cairo_fill(cr);
+    }
+}
+
 /* ═══════════════════════════════════════════════════════════
    Promotion dialog
    ═══════════════════════════════════════════════════════════ */
 static enum pieceType showPromotionDialog(void) {
-    /* Clean approach: pass each button directly to gtk_dialog_new_with_buttons
-       so GTK wires the response ids correctly with no manual re-wiring. */
     GtkWidget* dlg = gtk_dialog_new_with_buttons(
         "Promote Ant — choose a piece",
         GTK_WINDOW(app.window),
@@ -425,6 +595,18 @@ static enum pieceType showPromotionDialog(void) {
 /* ═══════════════════════════════════════════════════════════
    New Game dialog
    ═══════════════════════════════════════════════════════════ */
+
+/* Callback: show/hide the difficulty row based on selected mode */
+static void onModeChanged(GtkComboBox* combo, gpointer user_data) {
+    GtkWidget** difWidgets = (GtkWidget**)user_data;
+    /* difWidgets[0] = difficulty label, difWidgets[1] = difficulty combo */
+    int idx = gtk_combo_box_get_active(combo);
+    /* idx 0 = Human vs Human — hide difficulty */
+    gboolean visible = (idx != 0);
+    gtk_widget_set_visible(difWidgets[0], visible);
+    gtk_widget_set_visible(difWidgets[1], visible);
+}
+
 static bool showNewGameDialog(void) {
     GtkWidget* dlg = gtk_dialog_new_with_buttons(
         "New Game — Anteater Chess",
@@ -473,6 +655,12 @@ static bool showNewGameDialog(void) {
     gtk_combo_box_set_active(GTK_COMBO_BOX(cbDif), 1);
     gtk_grid_attach(GTK_GRID(grid), lDif,  0, 2, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), cbDif, 1, 2, 1, 1);
+
+    /* Wire up the mode → difficulty visibility callback */
+    GtkWidget* difWidgets[2] = { lDif, cbDif };
+    g_signal_connect(cbMode, "changed", G_CALLBACK(onModeChanged), difWidgets);
+    /* Trigger once immediately to reflect the default selection */
+    onModeChanged(GTK_COMBO_BOX(cbMode), difWidgets);
 
     gtk_widget_show_all(dlg);
     gint resp = gtk_dialog_run(GTK_DIALOG(dlg));
@@ -554,7 +742,6 @@ static gboolean aiMoveIdle(gpointer data) {
     app.aiSource = 0;
     if (app.gameOver || isHumanTurn()) return G_SOURCE_REMOVE;
 
-    /* Temporarily show "thinking" */
     gtk_label_set_text(GTK_LABEL(app.statusLabel), "⚙ AI thinking…");
     while (gtk_events_pending()) gtk_main_iteration();
 
@@ -568,7 +755,6 @@ static gboolean aiMoveIdle(gpointer data) {
     Move best = findBestMove(&app.gs, depth);
     if (best) executeMove(best);
 
-    /* If still AI's turn (AI vs AI), schedule again */
     if (!app.gameOver && !isHumanTurn()) {
         app.aiSource = g_timeout_add(300, aiMoveIdle, NULL);
     }
@@ -637,13 +823,11 @@ static gboolean onBoardClick(GtkWidget* widget, GdkEventButton* event, gpointer 
     struct piece* clicked = app.gs.board[row][col];
 
     if (app.hasSel) {
-        /* Try to move */
         if (isLegalDest(row, col)) {
             Move candidates[8];
             int nc = movesTo(row, col, candidates);
             if (nc == 0) { clearSelection(); redraw(); return TRUE; }
 
-            /* Check if promotion */
             bool isPromo = false;
             for (int i = 0; i < nc; i++) {
                 int f = getFlags(candidates[i]);
@@ -675,7 +859,6 @@ static gboolean onBoardClick(GtkWidget* widget, GdkEventButton* event, gpointer 
             }
         }
 
-        /* Clicked same piece — deselect */
         if (clicked && clicked->color == app.gs.currentPlayer
             && app.selRow == row && app.selCol == col) {
             clearSelection();
@@ -684,7 +867,6 @@ static gboolean onBoardClick(GtkWidget* widget, GdkEventButton* event, gpointer 
         }
     }
 
-    /* Select a piece */
     if (clicked && clicked->color == app.gs.currentPlayer) {
         app.hasSel  = true;
         app.selRow  = row;
@@ -704,12 +886,10 @@ static gboolean onBoardClick(GtkWidget* widget, GdkEventButton* event, gpointer 
 static gboolean onBoardDraw(GtkWidget* widget, cairo_t* cr, gpointer data) {
     (void)data;
 
-    /* Board border */
     cairo_set_source_rgb(cr, COL_BORDER);
     cairo_rectangle(cr, 0, 0, BOARD_W, BOARD_H);
     cairo_fill(cr);
 
-    /* Find king position if in check */
     int checkKingRow = -1, checkKingCol = -1;
     if (!app.gameOver) {
         bool chk = isKingInCheck(app.gs.board, app.gs.currentPlayer);
@@ -727,12 +907,12 @@ static gboolean onBoardDraw(GtkWidget* widget, cairo_t* cr, gpointer data) {
     for (int row = 0; row < BOARD_ROWS; row++) {
         int drow = displayRow(row);
         for (int col = 0; col < BOARD_COLS; col++) {
-            bool sel      = app.hasSel && app.selRow == row && app.selCol == col;
-            bool legal    = app.hasSel && isLegalDest(row, col);
-            bool lastMv   = app.hasLast &&
-                            ((row == app.lastFR && col == app.lastFC) ||
-                             (row == app.lastTR && col == app.lastTC));
-            bool inChk    = (row == checkKingRow && col == checkKingCol);
+            bool sel    = app.hasSel && app.selRow == row && app.selCol == col;
+            bool legal  = app.hasSel && isLegalDest(row, col);
+            bool lastMv = app.hasLast &&
+                          ((row == app.lastFR && col == app.lastFC) ||
+                           (row == app.lastTR && col == app.lastTC));
+            bool inChk  = (row == checkKingRow && col == checkKingCol);
 
             drawSquareBG(cr, drow, col, sel, legal, lastMv, inChk);
             drawPiece(cr, widget, app.gs.board[row][col], drow, col);
@@ -751,7 +931,6 @@ static void onUndoClicked(GtkButton* btn, gpointer data) {
     if (app.gameOver) { app.gameOver = false; }
     if (app.undoDepth <= 0) return;
 
-    /* In HvsAI, undo two plies so human gets their turn back */
     int pliesToUndo = (app.mode == HUMAN_VS_AI) ? 2 : 1;
     for (int i = 0; i < pliesToUndo && app.undoDepth > 0; i++) {
         app.undoDepth--;
@@ -759,7 +938,6 @@ static void onUndoClicked(GtkButton* btn, gpointer data) {
         popPositionHash();
     }
 
-    /* Remove last log line(s) */
     for (int i = 0; i < pliesToUndo && app.logCount > 0; i++)
         app.logCount--;
     GtkTextIter start, end;
@@ -771,13 +949,7 @@ static void onUndoClicked(GtkButton* btn, gpointer data) {
         gtk_text_buffer_insert(app.logBuf, &end, app.logLines[i], -1);
         gtk_text_buffer_insert(app.logBuf, &end, "\n", -1);
     }
-    if (app.undoDepth > 0) {
-        app.hasLast = true;
-        /* Guess last move from undo stack top — not stored; just clear */
-        app.hasLast = false;
-    } else {
-        app.hasLast = false;
-    }
+    app.hasLast = false;
     clearSelection();
     redraw();
 }
@@ -847,13 +1019,13 @@ static GtkWidget* buildLegend(void) {
     gtk_container_set_border_width(GTK_CONTAINER(grid), 10);
 
     struct { const char* sym; const char* name; } pieces[] = {
-        { "♔/♚", "King"     },
-        { "♕/♛", "Queen"    },
-        { "♖/♜", "Rook"     },
-        { "♗/♝", "Bishop"   },
-        { "♘/♞", "Knight"   },
+        { "♔/♚", "King"       },
+        { "♕/♛", "Queen"      },
+        { "♖/♜", "Rook"       },
+        { "♗/♝", "Bishop"     },
+        { "♘/♞", "Knight"     },
         { "♙/♟", "Ant (Pawn)" },
-        { "Ⓐ/ⓐ", "Anteater" },
+        { "[A]",  "Anteater"  },
     };
 
     for (int i = 0; i < 7; i++) {
@@ -903,7 +1075,6 @@ static void buildUI(void) {
 
     applyCSS();
 
-    /* Root horizontal box */
     GtkWidget* root = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_container_set_border_width(GTK_CONTAINER(root), 8);
     gtk_container_add(GTK_CONTAINER(app.window), root);
@@ -912,21 +1083,18 @@ static void buildUI(void) {
     GtkWidget* leftCol = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     gtk_box_pack_start(GTK_BOX(root), leftCol, FALSE, FALSE, 0);
 
-    /* Board drawing area */
     app.boardArea = gtk_drawing_area_new();
     gtk_widget_set_size_request(app.boardArea, BOARD_W, BOARD_H);
     gtk_widget_add_events(app.boardArea, GDK_BUTTON_PRESS_MASK);
-    g_signal_connect(app.boardArea, "draw",           G_CALLBACK(onBoardDraw),  NULL);
+    g_signal_connect(app.boardArea, "draw",               G_CALLBACK(onBoardDraw),  NULL);
     g_signal_connect(app.boardArea, "button-press-event", G_CALLBACK(onBoardClick), NULL);
     gtk_box_pack_start(GTK_BOX(leftCol), app.boardArea, FALSE, FALSE, 0);
 
-    /* Status */
     app.statusLabel = gtk_label_new("Anteater Chess");
     gtk_widget_set_name(app.statusLabel, "status");
     gtk_widget_set_halign(app.statusLabel, GTK_ALIGN_CENTER);
     gtk_box_pack_start(GTK_BOX(leftCol), app.statusLabel, FALSE, FALSE, 2);
 
-    /* Button row */
     GtkWidget* btnRow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_widget_set_halign(btnRow, GTK_ALIGN_CENTER);
     gtk_box_pack_start(GTK_BOX(leftCol), btnRow, FALSE, FALSE, 2);
@@ -963,13 +1131,9 @@ static void buildUI(void) {
     gtk_widget_set_size_request(rightCol, SIDEBAR_W, -1);
     gtk_box_pack_start(GTK_BOX(root), rightCol, FALSE, FALSE, 0);
 
-    GtkWidget* legend = buildLegend();
-    gtk_box_pack_start(GTK_BOX(rightCol), legend, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(rightCol), buildLegend(),       FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(rightCol), buildAnteaterInfo(), FALSE, FALSE, 0);
 
-    GtkWidget* anteaterInfo = buildAnteaterInfo();
-    gtk_box_pack_start(GTK_BOX(rightCol), anteaterInfo, FALSE, FALSE, 0);
-
-    /* Half-move clock display */
     char hmcbuf[64];
     snprintf(hmcbuf, sizeof(hmcbuf), "50-move rule: 0/100");
     GtkWidget* hmcLabel = gtk_label_new(hmcbuf);
@@ -994,9 +1158,8 @@ int main(int argc, char* argv[]) {
 
     buildUI();
 
-    /* Show new-game dialog on startup */
     if (!showNewGameDialog()) {
-        /* Default: HvAI medium */
+        /* User cancelled — start with defaults */
     }
     startNewGame();
 
