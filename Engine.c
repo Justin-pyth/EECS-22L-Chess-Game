@@ -16,7 +16,7 @@ int nodeCount = 0;
 
 bool stop_search = false;
 double time_start = 0;
-double time_allot = 2000; //2 seconds alloted per move (can change)
+double time_allot = 3500; //3.5 seconds alloted per move (can change)
 static uint64_t SEARCH_HASHES[SEARCH_STACK_SIZE];
 
 //start of killer move implementation

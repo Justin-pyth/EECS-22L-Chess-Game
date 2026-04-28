@@ -2,72 +2,53 @@
 # Anteater Chess — Makefile
 #
 # Targets:
-#   all / make   (default)  GUI build using Gui.c + Core.c
-#   test                    Run the built executable
-#   clean                   Remove object files and executable
-#   tar                     Create the source package archive
+#   chess_gui   (default)  GUI build using gui.c + core.c
+#   chess_term             Terminal build using Chess.c (original, unchanged)
+#   clean
 #
 # SETUP:
-#   1. Place all source files and headers inside src/
-#   2. Place documentation PDFs inside doc/
-#   3. The executable will be generated in bin/
-#   4. Run: make
-#
-# NOTES:
-#   - This Makefile is configured for the GUI version only.
-#   - Chess.c is not compiled, because Core.c already contains the
-#     shared game logic used by the GUI build.
-#   - -DGUI_BUILD disables Core.c's terminal main() automatically.
+#   1. Copy core.c alongside your existing Chess.c — don't delete Chess.c.
+#      core.c is Chess.c with main() guarded by #ifndef GUI_BUILD.
+#   2. Copy gui.c into the same directory.
+#   3. Run: make chess_gui
 #
 # REQUIREMENTS:
 #   GTK+ 3.x dev libraries:
 #     Ubuntu/Debian: sudo apt install libgtk-3-dev
 #     Fedora/RHEL:   sudo dnf install gtk3-devel
 #     macOS:         brew install gtk+3
-#     MSYS2:         pacman -S mingw-w64-x86_64-gtk3
 # ─────────────────────────────────────────────────────────────────────────────
 
 CC      = gcc
+CFLAGS  = -Wall -Wextra -O2 -std=c11
+LIBS    = -lm
 GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS   = $(shell pkg-config --libs gtk+-3.0)
-# -DGUI_BUILD: disables terminal main() in Core.c and terminal-only code paths
-CFLAGS  = -Wall -Wextra -O2 -std=c11 -DGUI_BUILD $(GTK_CFLAGS)
-LIBS    = $(GTK_LIBS) -lm
-
-BIN_DIR = bin
-DOC_DIR = doc
-
-TARGET  = $(BIN_DIR)/chess
 
 HEADERS = types.h Moves.h Ant.h Eval.h Hash.h TT.h Engine.h
 
-OBJ = Gui.o Core.o Moves.o Ant.o Eval.o Hash.o TT.o Engine.o
+.PHONY: all chess_gui chess_term clean
 
-.PHONY: all test clean tar
-
-all: $(TARGET)
+all: chess_gui
 
 # ── GUI build ─────────────────────────────────────────────────────────────────
-$(TARGET): $(OBJ) | $(BIN_DIR)
-	$(CC) -o $(TARGET) $(OBJ) $(LIBS)
+# Uses core.c (Chess.c with main() behind #ifndef GUI_BUILD).
+# gui.c provides the GTK3 entry point.
+chess_gui: Gui.c Core.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c $(HEADERS)
+	$(CC) $(CFLAGS) -DGUI_BUILD $(GTK_CFLAGS) \
+	    Gui.c Core.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c \
+	    -o chess_gui \
+	    $(GTK_LIBS) $(LIBS)
 
-# ── Binary output directory ──────────────────────────────────────────────────
-$(BIN_DIR):
-	mkdir -p $(BIN_DIR)
+# ── Terminal build ────────────────────────────────────────────────────────────
+# Uses the original Chess.c unchanged.
+chess_term: Chess.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c terminalTestingFunctions.c $(HEADERS) terminalTestingFunctions.h
+	$(CC) $(CFLAGS) \
+	    -o chess_term \
+	    Chess.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c terminalTestingFunctions.c \
+	    $(LIBS)
+	@echo "► chess_term built successfully."
 
-# ── Object build rule ────────────────────────────────────────────────────────
-%.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# ── Test target ──────────────────────────────────────────────────────────────
-test: $(TARGET)
-	./$(TARGET)
-
-# ── Clean target ─────────────────────────────────────────────────────────────
 clean:
-	rm -f *.o $(TARGET)
+	rm -f chess_gui chess_term *.o
 	@echo "Cleaned."
-
-# ── Source package target ────────────────────────────────────────────────────
-tar: clean
-	cd .. && tar -czvf Chess_V1.0_src.tar.gz Chess_V1.0_src/
