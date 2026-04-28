@@ -1,15 +1,5 @@
 #include "Ant.h"
 
-static void dfsAnteaterPath(struct piece* board[8][10],
-                            int row, int col,
-                            int toRow, int toCol,
-                            enum pieceColor opponent,
-                            bool visited[8][10],
-                            struct location* currentPath,
-                            int currentCount,
-                            struct location* bestPath,
-                            int* bestCount);
-
 Move chooseBestAnteaterMove(const struct gameState* gs, Move* firstAnt, int count)
 {
     if (count <= 0) return 0;
@@ -134,9 +124,9 @@ bool buildAnteaterPath(struct piece* board[8][10],
     enum pieceColor opponent = (attackerColor == WHITE) ? BLACK : WHITE;
 
     bool visited[8][10] = {0};
-    struct location currentPath[80];
-    struct location bestPath[80];
-    int bestCount = 0;
+    struct location parent[8][10];
+    struct location queue[80];
+    int head = 0, tail = 0;
 
     //check if any available units  to be eaten 1 unit way
     if (abs(eatRow - fromRow) > 1 || abs(eatCol - fromCol) > 1)
@@ -157,66 +147,54 @@ bool buildAnteaterPath(struct piece* board[8][10],
         board[toRow][toCol]->color != opponent)
         return false;
 
-    //start a dfs search to find the path that eats the most ants on current path
-    //only the best path will be chosen to avoid human ambiguoity in multiple legal paths to destination
-    visited[eatRow][eatCol] = true;
-    dfsAnteaterPath(board, eatRow, eatCol, toRow, toCol, opponent, visited, currentPath, 0, bestPath, &bestCount);
+    for (int r = 0; r < 8; r++)
+    {
+        for (int c = 0; c < 10; c++)
+        {
+            parent[r][c].row = -1;
+            parent[r][c].col = -1;
+        }
+    }
 
-    if (bestCount == 0)
+    visited[eatRow][eatCol] = true;
+    queue[tail++] = (struct location){eatRow, eatCol};
+
+    int orth_dir[4][2] = {{0,1}, {0,-1}, {1,0}, {-1,0}};
+    while (head < tail && !visited[toRow][toCol])
+    {
+        struct location current = queue[head++];
+        for (int d = 0; d < 4; d++)
+        {
+            int nr = current.row + orth_dir[d][0];
+            int nc = current.col + orth_dir[d][1];
+
+            if (nr < 0 || nr >= 8 || nc < 0 || nc >= 10 || visited[nr][nc]) continue;
+
+            if (board[nr][nc] && board[nr][nc]->piece == ANT && board[nr][nc]->color == opponent)
+            {
+                visited[nr][nc] = true;
+                parent[nr][nc] = current;
+                queue[tail++] = (struct location){nr, nc};
+            }
+        }
+    }
+
+    if (!visited[toRow][toCol])
         return false;
 
-    for (int i = 0; i < bestCount; i++)
-        path[i] = bestPath[i];
+    struct location reversePath[80];
+    int count = 0;
+    struct location current = {toRow, toCol};
 
-    //how many ants were taken
-    *pathCount = bestCount;
+    while (current.row != -1 && current.col != -1)
+    {
+        reversePath[count++] = current;
+        current = parent[current.row][current.col];
+    }
+
+    for (int i = 0; i < count; i++)
+        path[i] = reversePath[count - 1 - i];
+
+    *pathCount = count;
     return true;
-}
-
-
-
-//dfs search to return the path that eats the most ants
-static void dfsAnteaterPath(struct piece* board[8][10],
-                            int row, int col,
-                            int toRow, int toCol,
-                            enum pieceColor opponent,
-                            bool visited[8][10],
-                            struct location* currentPath,
-                            int currentCount,
-                            struct location* bestPath,
-                            int* bestCount)
-{
-    currentPath[currentCount++] = (struct location){row, col};
-
-    //if final ant is reached, keep the longest valid path found so far
-    if (row == toRow && col == toCol)
-    {
-        if (currentCount > *bestCount)
-        {
-            for (int i = 0; i < currentCount; i++)
-                bestPath[i] = currentPath[i];
-            *bestCount = currentCount;
-        }
-        return;
-    }
-
-    //orthogonal directions(no diagonals)
-    int orth_dir[4][2] = {{0,1}, {0,-1}, {1,0}, {-1,0}};
-    for (int d = 0; d < 4; d++)
-    {
-        int nr = row + orth_dir[d][0];
-        int nc = col + orth_dir[d][1];
-
-        //check bounds
-        if (nr < 0 || nr >= 8 || nc < 0 || nc >= 10 || visited[nr][nc]) continue;
-
-        //if enemy ant in location
-        if (board[nr][nc] && board[nr][nc]->piece == ANT && board[nr][nc]->color == opponent)
-        {
-            visited[nr][nc] = true;
-            dfsAnteaterPath(board, nr, nc, toRow, toCol, opponent,
-                            visited, currentPath, currentCount, bestPath, bestCount);
-            visited[nr][nc] = false;
-        }
-    }
 }
