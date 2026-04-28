@@ -17,35 +17,29 @@
 #   - This Makefile is configured for the GUI version only.
 #   - Chess.c is not compiled, because Core.c already contains the
 #     shared game logic used by the GUI build.
-#   - Core.c's terminal main() should be disabled manually
-#     (for example with #if 0 ... #endif) if still present.
+#   - -DGUI_BUILD disables Core.c's terminal main() automatically.
 #
 # REQUIREMENTS:
 #   GTK+ 3.x dev libraries:
 #     Ubuntu/Debian: sudo apt install libgtk-3-dev
 #     Fedora/RHEL:   sudo dnf install gtk3-devel
-#     macOS:         brew install gtk+3  
+#     macOS:         brew install gtk+3
+#     MSYS2:         pacman -S mingw-w64-x86_64-gtk3
 # ─────────────────────────────────────────────────────────────────────────────
 
 CC      = gcc
-CFLAGS  = -Wall -Wextra -O2 -std=c11 -I src
-LIBS    = -lm
 GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS   = $(shell pkg-config --libs gtk+-3.0)
+# -DGUI_BUILD: disables terminal main() in Core.c and terminal-only code paths
+CFLAGS  = -Wall -Wextra -O2 -std=c11 -DGUI_BUILD $(GTK_CFLAGS)
+LIBS    = $(GTK_LIBS) -lm
 
 BIN_DIR = bin
-SRC_DIR = src
 DOC_DIR = doc
 
 TARGET  = $(BIN_DIR)/chess
 
-HEADERS = $(SRC_DIR)/types.h \
-          $(SRC_DIR)/Moves.h \
-          $(SRC_DIR)/Ant.h \
-          $(SRC_DIR)/Eval.h \
-          $(SRC_DIR)/Hash.h \
-          $(SRC_DIR)/TT.h \
-          $(SRC_DIR)/Engine.h
+HEADERS = types.h Moves.h Ant.h Eval.h Hash.h TT.h Engine.h
 
 OBJ = Gui.o Core.o Moves.o Ant.o Eval.o Hash.o TT.o Engine.o
 
@@ -54,24 +48,18 @@ OBJ = Gui.o Core.o Moves.o Ant.o Eval.o Hash.o TT.o Engine.o
 all: $(TARGET)
 
 # ── GUI build ─────────────────────────────────────────────────────────────────
-# Uses Gui.c as the entry point and Core.c for shared game logic.
-# The final executable is generated in bin/chess to match the required package
-# hierarchy for the source code release.
 $(TARGET): $(OBJ) | $(BIN_DIR)
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) \
-	    -o $(TARGET) $(OBJ) \
-	    $(GTK_LIBS) $(LIBS)
+	$(CC) -o $(TARGET) $(OBJ) $(LIBS)
 
 # ── Binary output directory ──────────────────────────────────────────────────
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
 # ── Object build rule ────────────────────────────────────────────────────────
-%.o: $(SRC_DIR)/%.c $(HEADERS)
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
+%.o: %.c $(HEADERS)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 # ── Test target ──────────────────────────────────────────────────────────────
-# Runs the generated executable from bin/
 test: $(TARGET)
 	./$(TARGET)
 
@@ -81,6 +69,5 @@ clean:
 	@echo "Cleaned."
 
 # ── Source package target ────────────────────────────────────────────────────
-# Creates the source code archive from the parent directory.
 tar: clean
 	cd .. && tar -czvf Chess_V1.0_src.tar.gz Chess_V1.0_src/
