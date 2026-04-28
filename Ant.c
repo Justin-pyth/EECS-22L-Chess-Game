@@ -147,6 +147,7 @@ bool buildAnteaterPath(struct piece* board[8][10],
         board[toRow][toCol]->color != opponent)
         return false;
 
+    //initialize parents to -1
     for (int r = 0; r < 8; r++)
     {
         for (int c = 0; c < 10; c++)
@@ -156,22 +157,30 @@ bool buildAnteaterPath(struct piece* board[8][10],
         }
     }
 
+    //visit a tile
     visited[eatRow][eatCol] = true;
-    queue[tail++] = (struct location){eatRow, eatCol};
+    queue[tail++] = (struct location){eatRow, eatCol}; //add at the tail
 
+    //all adjacent directions an anteater can travel
     int orth_dir[4][2] = {{0,1}, {0,-1}, {1,0}, {-1,0}};
-    while (head < tail && !visited[toRow][toCol])
+    while (head < tail && !visited[toRow][toCol]) //check if not empty and until target found
     {
+        //find current piece to be visited
         struct location current = queue[head++];
+        //move in all directions from current ant,
+        //and check the pieces
         for (int d = 0; d < 4; d++)
         {
             int nr = current.row + orth_dir[d][0];
             int nc = current.col + orth_dir[d][1];
 
+            //bounds
             if (nr < 0 || nr >= 8 || nc < 0 || nc >= 10 || visited[nr][nc]) continue;
 
+            //check if piece is an enemy ant
             if (board[nr][nc] && board[nr][nc]->piece == ANT && board[nr][nc]->color == opponent)
             {
+                //if an enemy adjacent ant is found, set current as parent, add visited, and add to tail of q
                 visited[nr][nc] = true;
                 parent[nr][nc] = current;
                 queue[tail++] = (struct location){nr, nc};
@@ -179,22 +188,26 @@ bool buildAnteaterPath(struct piece* board[8][10],
         }
     }
 
+    //if destination ant can't be visited, return false
     if (!visited[toRow][toCol])
         return false;
 
+    //to construct a path from desination ant back to start
     struct location reversePath[80];
     int count = 0;
     struct location current = {toRow, toCol};
 
+    //keep going back until no parent, while appending the count and tracking nodes backwards
     while (current.row != -1 && current.col != -1)
     {
         reversePath[count++] = current;
         current = parent[current.row][current.col];
     }
 
+    //reverse the reversed path
     for (int i = 0; i < count; i++)
         path[i] = reversePath[count - 1 - i];
-
+    
     *pathCount = count;
     return true;
 }

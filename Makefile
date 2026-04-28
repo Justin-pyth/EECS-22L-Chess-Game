@@ -2,85 +2,53 @@
 # Anteater Chess — Makefile
 #
 # Targets:
-#   all / make   (default)  GUI build using Gui.c + Core.c
-#   test                    Run the built executable
-#   clean                   Remove object files and executable
-#   tar                     Create the source package archive
+#   chess_gui   (default)  GUI build using gui.c + core.c
+#   chess_term             Terminal build using Chess.c (original, unchanged)
+#   clean
 #
 # SETUP:
-#   1. Place all source files and headers inside src/
-#   2. Place documentation PDFs inside doc/
-#   3. The executable will be generated in bin/
-#   4. Run: make
-#
-# NOTES:
-#   - This Makefile is configured for the GUI version only.
-#   - Chess.c is not compiled, because Core.c already contains the
-#     shared game logic used by the GUI build.
-#   - Core.c's terminal main() should be disabled manually
-#     (for example with #if 0 ... #endif) if still present.
+#   1. Copy core.c alongside your existing Chess.c — don't delete Chess.c.
+#      core.c is Chess.c with main() guarded by #ifndef GUI_BUILD.
+#   2. Copy gui.c into the same directory.
+#   3. Run: make chess_gui
 #
 # REQUIREMENTS:
 #   GTK+ 3.x dev libraries:
 #     Ubuntu/Debian: sudo apt install libgtk-3-dev
 #     Fedora/RHEL:   sudo dnf install gtk3-devel
-#     macOS:         brew install gtk+3  
+#     macOS:         brew install gtk+3
 # ─────────────────────────────────────────────────────────────────────────────
 
 CC      = gcc
-CFLAGS  = -Wall -Wextra -O2 -std=c11 -I src
+CFLAGS  = -Wall -Wextra -O2 -std=c11
 LIBS    = -lm
 GTK_CFLAGS = $(shell pkg-config --cflags gtk+-3.0)
 GTK_LIBS   = $(shell pkg-config --libs gtk+-3.0)
 
-BIN_DIR = bin
-SRC_DIR = src
-DOC_DIR = doc
+HEADERS = types.h Moves.h Ant.h Eval.h Hash.h TT.h Engine.h
 
-TARGET  = $(BIN_DIR)/chess
+.PHONY: all chess_gui chess_term clean
 
-HEADERS = $(SRC_DIR)/types.h \
-          $(SRC_DIR)/Moves.h \
-          $(SRC_DIR)/Ant.h \
-          $(SRC_DIR)/Eval.h \
-          $(SRC_DIR)/Hash.h \
-          $(SRC_DIR)/TT.h \
-          $(SRC_DIR)/Engine.h
-
-OBJ = Gui.o Core.o Moves.o Ant.o Eval.o Hash.o TT.o Engine.o
-
-.PHONY: all test clean tar
-
-all: $(TARGET)
+all: chess_gui
 
 # ── GUI build ─────────────────────────────────────────────────────────────────
-# Uses Gui.c as the entry point and Core.c for shared game logic.
-# The final executable is generated in bin/chess to match the required package
-# hierarchy for the source code release.
-$(TARGET): $(OBJ) | $(BIN_DIR)
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) \
-	    -o $(TARGET) $(OBJ) \
+# Uses core.c (Chess.c with main() behind #ifndef GUI_BUILD).
+# gui.c provides the GTK3 entry point.
+chess_gui: Gui.c Core.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c $(HEADERS)
+	$(CC) $(CFLAGS) -DGUI_BUILD $(GTK_CFLAGS) \
+	    Gui.c Core.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c \
+	    -o chess_gui \
 	    $(GTK_LIBS) $(LIBS)
 
-# ── Binary output directory ──────────────────────────────────────────────────
-$(BIN_DIR):
-	mkdir -p $(BIN_DIR)
+# ── Terminal build ────────────────────────────────────────────────────────────
+# Uses the original Chess.c unchanged.
+chess_term: Chess.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c terminalTestingFunctions.c $(HEADERS) terminalTestingFunctions.h
+	$(CC) $(CFLAGS) \
+	    -o chess_term \
+	    Chess.c Moves.c Ant.c Eval.c Hash.c TT.c Engine.c terminalTestingFunctions.c \
+	    $(LIBS)
+	@echo "► chess_term built successfully."
 
-# ── Object build rule ────────────────────────────────────────────────────────
-%.o: $(SRC_DIR)/%.c $(HEADERS)
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c $< -o $@
-
-# ── Test target ──────────────────────────────────────────────────────────────
-# Runs the generated executable from bin/
-test: $(TARGET)
-	./$(TARGET)
-
-# ── Clean target ─────────────────────────────────────────────────────────────
 clean:
-	rm -f *.o $(TARGET)
+	rm -f chess_gui chess_term *.o
 	@echo "Cleaned."
-
-# ── Source package target ────────────────────────────────────────────────────
-# Creates the source code archive from the parent directory.
-tar: clean
-	cd .. && tar -czvf Chess_V1.0_src.tar.gz Chess_V1.0_src/
