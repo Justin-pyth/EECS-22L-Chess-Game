@@ -104,9 +104,9 @@ static int getMobility(const struct gameState* gs, enum pieceColor color)
     int moveCount = 0;
 
     temp_state.currentPlayer = color;
-    getMoves(&temp_state, moves, &moveCount);
+    getPseudoLegalMoves(&temp_state, moves, &moveCount);
 
-    //return legal moves from that position
+    //return pseudolegal moves from that position
     return moveCount;
 }
 
