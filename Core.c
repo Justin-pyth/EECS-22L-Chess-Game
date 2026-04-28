@@ -273,6 +273,8 @@ bool isCastlingValid(struct piece* board[8][10], enum pieceColor color,
         if (board[row][c]) return false;
 
     enum pieceColor opp  = (color == WHITE) ? BLACK : WHITE;
+    if (isKingInCheck(board, color)) return false;
+
     int destCol = kingSide ? 7 : 3;
     int step = (destCol > kingCol) ? 1 : -1;
     struct piece* kPiece = board[row][kingCol];
